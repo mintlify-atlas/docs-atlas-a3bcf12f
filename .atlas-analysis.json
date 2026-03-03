@@ -1,0 +1,107 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Trie Rules",
+  "projectDescription": "A high-performance JavaScript library for fast search and replace operations using trie-based pattern matching.",
+  "theme": "palm",
+  "primaryColor": "#3B82F6",
+  "lightColor": "#60A5FA",
+  "darkColor": "#2563EB",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/rules",
+              "concepts/trie-structure",
+              "concepts/matching-options",
+              "concepts/apostrophe-normalization"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/basic-usage",
+              "guides/advanced-matching",
+              "guides/optimization",
+              "guides/confirmation-callbacks",
+              "guides/performance"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Functions",
+            "pages": [
+              "api/build-trie",
+              "api/search-and-replace",
+              "api/contains-source",
+              "api/contains-target",
+              "api/optimize-rules"
+            ]
+          },
+          {
+            "group": "Utility Functions",
+            "pages": [
+              "api/utilities"
+            ]
+          },
+          {
+            "group": "Types & Enums",
+            "pages": [
+              "api/types",
+              "api/enums"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "High-performance trie-based search and replace",
+    "Rule optimization with automatic consolidation",
+    "Case-insensitive matching with intelligent casing",
+    "Apostrophe normalization for flexible matching",
+    "Context-aware matching (whole word, alone, any)",
+    "Confirmation callbacks for conditional replacements",
+    "Comprehensive text transformation utilities"
+  ],
+  "publicApiSurface": [
+    "buildTrie",
+    "searchAndReplace",
+    "containsSource",
+    "containsTarget",
+    "optimizeRules",
+    "adjustCasing",
+    "findFirstAlphaIndex",
+    "generateCaseVariants",
+    "isAlphabeticLetter",
+    "isLetter",
+    "isLowerCase",
+    "isUpperCase",
+    "isWordCharacterAt",
+    "CaseSensitivity",
+    "MatchType",
+    "TriePattern",
+    "Rule",
+    "TrieNode",
+    "BuildTrieOptions",
+    "RuleOptions",
+    "SearchAndReplaceOptions",
+    "ConfirmCallback",
+    "OptimizeResult"
+  ]
+}
