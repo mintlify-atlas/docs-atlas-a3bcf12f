@@ -1,0 +1,103 @@
+---
+title: Constants
+description: Regular expression constants exported by trie-rules for pattern matching
+---
+
+The trie-rules library exports two regular expression constants that are used internally and can be useful for custom text processing.
+
+## APOSTROPHE_LIKE_REGEX
+
+A regular expression that matches apostrophe-like characters used in various languages and typographic contexts.
+
+```typescript
+const APOSTROPHE_LIKE_REGEX = /['''`ʾ‛ʼʻʿ]/u;
+```
+
+<ParamField path="APOSTROPHE_LIKE_REGEX" type="RegExp">
+  Matches any of the following apostrophe-like characters:
+  - `'` - Standard apostrophe (U+0027)
+  - `'` - Right single quotation mark (U+2019)
+  - `'` - Left single quotation mark (U+2018)
+  - `` ` `` - Grave accent / backtick (U+0060)
+  - `ʾ` - Modifier letter right half ring (U+02BE)
+  - `‛` - Single high-reversed-9 quotation mark (U+201B)
+  - `ʼ` - Modifier letter apostrophe (U+02BC)
+  - `ʻ` - Modifier letter turned comma (U+02BB)
+  - `ʿ` - Modifier letter left half ring (U+02BF)
+</ParamField>
+
+### Usage
+
+This constant is primarily used internally by the apostrophe normalization feature, but you can use it for your own text processing:
+
+```typescript
+import { APOSTROPHE_LIKE_REGEX } from 'trie-rules';
+
+const text = "Don't use fancy apostrophes like don't or don`t";
+const normalized = text.replace(new RegExp(APOSTROPHE_LIKE_REGEX, 'g'), "'");
+
+console.log(normalized);
+// Output: "Don't use fancy apostrophes like don't or don't"
+```
+
+<Info>
+  When building a trie with `normalizeApostrophes: true`, this regex is used to convert all apostrophe-like characters to the standard apostrophe `'` for consistent matching.
+</Info>
+
+### Use cases
+
+- **Text normalization**: Standardize apostrophes before processing
+- **Custom validation**: Check if text contains variant apostrophes
+- **Pattern detection**: Identify non-standard apostrophe usage in user input
+
+## LETTER_REGEX
+
+A Unicode-aware regular expression that matches any letter character.
+
+```typescript
+const LETTER_REGEX = /\p{L}/u;
+```
+
+<ParamField path="LETTER_REGEX" type="RegExp">
+  Matches any Unicode letter character using the Unicode property escape `\p{L}`. This includes:
+  - Latin letters (a-z, A-Z)
+  - Accented letters (é, ñ, ü, etc.)
+  - Non-Latin scripts (Arabic, Hebrew, Chinese, etc.)
+  - All other Unicode letter categories
+</ParamField>
+
+### Usage
+
+This constant is used internally for case detection and word boundary analysis, but you can use it for custom text processing:
+
+```typescript
+import { LETTER_REGEX } from 'trie-rules';
+
+const text = "Hello 世界! مرحبا";
+const letters = text.match(new RegExp(LETTER_REGEX, 'gu'));
+
+console.log(letters);
+// Output: ['H', 'e', 'l', 'l', 'o', '世', '界', 'م', 'ر', 'ح', 'ب', 'ا']
+```
+
+### Use cases
+
+- **Multilingual text processing**: Detect letters in any language
+- **Custom tokenization**: Split text while preserving Unicode letters
+- **Validation**: Check if characters are alphabetic across all scripts
+
+<Tip>
+  The `u` flag is required when using Unicode property escapes like `\p{L}`. Make sure to include it when creating your own RegExp instances with these patterns.
+</Tip>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Apostrophe Normalization" icon="quotes" href="/concepts/apostrophe-normalization">
+    Learn how APOSTROPHE_LIKE_REGEX is used in normalization
+  </Card>
+  
+  <Card title="Utility Functions" icon="wrench" href="/api/utilities">
+    Functions that use these constants internally
+  </Card>
+</CardGroup>
