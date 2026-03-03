@@ -1,0 +1,306 @@
+---
+title: Advanced matching
+description: Control precisely when and how patterns match using match types, case sensitivity, prefix handling, and clipping patterns.
+---
+
+## Match types
+
+The `match` option controls the context in which a pattern should match. There are three match types available:
+
+<CardGroup cols={3}>
+  <Card title="Any" icon="asterisk">
+    Matches in any context, regardless of surrounding characters. This is the default.
+  </Card>
+  <Card title="Whole" icon="border-outer">
+    Matches only when the pattern is a complete word, not part of a larger word.
+  </Card>
+  <Card title="Alone" icon="circle">
+    Matches only when surrounded by whitespace on both sides.
+  </Card>
+</CardGroup>
+
+### Any match (default)
+
+Without any match type specified, patterns match anywhere in the text:
+
+```js
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['Ali'],
+    to: 'ʿAlī',
+  },
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, 'Ali went with Alison.'));
+// Output: 'ʿAlī went with ʿAlīson.'
+```
+
+<Warning>
+Without match constraints, patterns may match inside larger words, which is often undesirable.
+</Warning>
+
+### Whole word matching
+
+Use `MatchType.Whole` to ensure patterns only match complete words:
+
+```js
+import { buildTrie, searchAndReplace, MatchType } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['Ali'],
+    to: 'ʿAlī',
+    options: {
+      match: MatchType.Whole,
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, 'Ali went with Alison.'));
+// Output: 'ʿAlī went with Alison.'
+```
+
+<Info>
+`MatchType.Whole` ensures the match is not part of a larger word. Letters and diacritics around it are disallowed, but punctuation and symbols are allowed.
+</Info>
+
+### Alone matching
+
+Use `MatchType.Alone` for strict matching where the pattern must be surrounded by whitespace:
+
+```js
+import { buildTrie, searchAndReplace, MatchType } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['az', 'ath', 'al'],
+    to: 'al-',
+    options: {
+      match: MatchType.Alone,
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, 'az-Zuhri'));
+// Output: 'az-Zuhri' (no match because 'az' is followed by '-')
+
+console.log(searchAndReplace(trie, 'az Zuhri'));
+// Output: 'al-Zuhri' (matches because 'az' is followed by space)
+```
+
+<Tip>
+`MatchType.Alone` is useful for matching standalone words like articles or prepositions that should only be replaced when they appear in isolation.
+</Tip>
+
+## Case sensitivity
+
+Control how the replacement handles letter casing with the `casing` option:
+
+### Case sensitive (default)
+
+By default, matching is case-sensitive and the replacement preserves its original casing:
+
+```js
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['sufyan'],
+    to: 'Sufyān',
+  },
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, 'sufyan went home.'));
+// Output: 'Sufyān went home.'
+
+console.log(searchAndReplace(trie, 'Sufyan went home.'));
+// Output: 'Sufyan went home.' (no match)
+```
+
+### Case insensitive
+
+Use `CaseSensitivity.Insensitive` to match regardless of case and adjust the replacement casing to match the input:
+
+```js
+import { buildTrie, searchAndReplace, CaseSensitivity } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['sufyan'],
+    to: 'Sufyān',
+    options: {
+      casing: CaseSensitivity.Insensitive,
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, 'sufyan went home.'));
+// Output: 'sufyān went home.'
+
+console.log(searchAndReplace(trie, 'Sufyan went home.'));
+// Output: 'Sufyān went home.'
+
+console.log(searchAndReplace(trie, 'SUFYAN went home.'));
+// Output: 'SUFYĀN went home.'
+```
+
+<Note>
+With `CaseSensitivity.Insensitive`, the replacement adjusts its casing to match the first letter of the matched input.
+</Note>
+
+## Prefix handling
+
+The `prefix` option allows you to automatically add a prefix when it's missing from the input:
+
+```js
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['Bukhari'],
+    to: 'Bukhārī',
+    options: {
+      prefix: 'al-',
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, 'Bukhari narrated the hadith.'));
+// Output: 'al-Bukhārī narrated the hadith.'
+
+console.log(searchAndReplace(trie, 'al-Bukhari narrated the hadith.'));
+// Output: 'al-Bukhārī narrated the hadith.'
+```
+
+<Info>
+The prefix is only added if it's absent from the input text. If the input already contains the prefix, it's preserved in the replacement.
+</Info>
+
+## Clipping patterns
+
+Clipping patterns remove unwanted characters immediately before or after a match:
+
+### Clip start pattern
+
+Remove leading characters before the replacement:
+
+```js
+import { buildTrie, searchAndReplace, TriePattern } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['testword'],
+    to: 'tested',
+    options: {
+      clipStartPattern: TriePattern.Apostrophes,
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, "The 'testword is here."));
+// Output: 'The tested is here.'
+```
+
+### Clip end pattern
+
+Remove trailing characters after the replacement:
+
+```js
+import { buildTrie, searchAndReplace, TriePattern } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['testword'],
+    to: 'tested',
+    options: {
+      clipEndPattern: TriePattern.Apostrophes,
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, "The testword' is here."));
+// Output: 'The tested is here.'
+```
+
+### Custom clip patterns
+
+You can also use custom regular expressions for clipping:
+
+```js
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['testword'],
+    to: 'tested',
+    options: {
+      clipEndPattern: /[`'ʾʿ'']+$/,
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, "The testwordʿʾ is here."));
+// Output: 'The tested is here.'
+```
+
+<Tip>
+`TriePattern.Apostrophes` is a predefined pattern that matches common apostrophe-like characters: `'` `'` `` ` `` `ʼ` `ʾ` `ʿ`
+</Tip>
+
+## Combining options
+
+You can combine multiple options for sophisticated matching:
+
+```js
+import {
+  buildTrie,
+  searchAndReplace,
+  MatchType,
+  CaseSensitivity,
+  TriePattern,
+} from 'trie-rules';
+
+const rules = [
+  {
+    from: ['testword'],
+    to: 'tested',
+    options: {
+      match: MatchType.Whole,
+      casing: CaseSensitivity.Insensitive,
+      clipStartPattern: TriePattern.Apostrophes,
+      clipEndPattern: /[`'ʾʿ'']+$/,
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, "The 'Testword' is here."));
+// Output: 'The Tested is here.'
+```
+
+## Next steps
+
+- Use [optimizeRules](/guides/optimization) to automatically detect and consolidate patterns
+- Implement [confirmation callbacks](/guides/confirmation-callbacks) for context-aware replacements
+- Review [performance characteristics](/guides/performance) of different matching strategies

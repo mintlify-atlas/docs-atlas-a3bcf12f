@@ -1,0 +1,184 @@
+---
+title: containsTarget
+description: Checks whether any stored rule targets inside the trie match the provided text
+---
+
+## Overview
+
+The `containsTarget` function checks whether any stored rule targets inside the trie match the provided text. This is useful to verify if a specific replacement target exists anywhere in the trie.
+
+## Function signature
+
+```typescript
+containsTarget(trie: TrieNode, text: string, options?: { caseInsensitive?: boolean }): boolean
+```
+
+## Parameters
+
+<ParamField path="trie" type="TrieNode" required>
+  The trie whose nodes will be inspected. This trie should be constructed using the [buildTrie](/api/build-trie) function.
+</ParamField>
+
+<ParamField path="text" type="string" required>
+  The target text to locate. The function searches for this string among all target values stored in the trie.
+</ParamField>
+
+<ParamField path="options" type="object">
+  Optional matching controls:
+  
+  <Expandable title="Options properties">
+    <ParamField path="caseInsensitive" type="boolean" default={false}>
+      When true, compares targets ignoring case. This allows matching "Demo" with "demo", "DEMO", etc.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="boolean">
+  True if a matching target is found, otherwise false. The function searches all nodes in the trie and returns true as soon as a match is found.
+</ResponseField>
+
+## Example usage
+
+### Basic usage
+
+```typescript
+import { buildTrie, containsTarget } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['example', 'sample'],
+    to: 'demo',
+  },
+  {
+    from: ['test'],
+    to: 'verified',
+  },
+];
+
+const trie = buildTrie(rules);
+
+// Check if targets exist in the trie
+console.log(containsTarget(trie, 'demo'));
+// Output: true
+
+console.log(containsTarget(trie, 'verified'));
+// Output: true
+
+console.log(containsTarget(trie, 'notfound'));
+// Output: false
+```
+
+### Case-insensitive matching
+
+```typescript
+import { buildTrie, containsTarget } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['example'],
+    to: 'Demo',
+  },
+];
+
+const trie = buildTrie(rules);
+
+// Case-sensitive search (default)
+console.log(containsTarget(trie, 'demo'));
+// Output: false
+
+console.log(containsTarget(trie, 'Demo'));
+// Output: true
+
+// Case-insensitive search
+console.log(containsTarget(trie, 'demo', { caseInsensitive: true }));
+// Output: true
+
+console.log(containsTarget(trie, 'DEMO', { caseInsensitive: true }));
+// Output: true
+```
+
+### Verifying unique targets
+
+```typescript
+import { buildTrie, containsTarget } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['Sufyan', 'Sufyaan'],
+    to: 'Sufyān',
+  },
+  {
+    from: ['Ali', 'Alee'],
+    to: 'ʿAlī',
+  },
+];
+
+const trie = buildTrie(rules);
+
+// Check which targets are present
+const targets = ['Sufyān', 'ʿAlī', 'Umar'];
+const presentTargets = targets.filter(target => 
+  containsTarget(trie, target)
+);
+
+console.log(presentTargets);
+// Output: ['Sufyān', 'ʿAlī']
+```
+
+### Checking for conflicts
+
+```typescript
+import { buildTrie, containsTarget } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['example'],
+    to: 'demo',
+  },
+];
+
+const trie = buildTrie(rules);
+
+// Before adding a new rule, check if the target already exists
+const newTarget = 'demo';
+if (containsTarget(trie, newTarget)) {
+  console.log(`Target "${newTarget}" already exists in the trie`);
+}
+```
+
+## Implementation details
+
+The function uses a depth-first search algorithm:
+
+1. Initialize a stack with the root trie node
+2. While the stack is not empty:
+   - Pop the current node
+   - If the node has a target property, compare it with the search text
+   - If a match is found, return true immediately
+   - Push all child nodes onto the stack
+3. If no match is found after traversing all nodes, return false
+
+The function skips special properties (`isEndOfWord`, `target`, `options`) and only traverses actual character nodes.
+
+## Runtime complexity
+
+The complexity is **O(n)** in the worst case, where:
+- `n` = total number of nodes in the trie
+
+The function may need to visit every node in the trie to find a target or determine that it doesn't exist. However, the search terminates early when a match is found.
+
+## Use cases
+
+- **Validation**: Verify that expected targets were added to the trie
+- **Conflict detection**: Check if a target already exists before adding new rules
+- **Testing**: Confirm rule targets in unit tests
+- **Debugging**: Locate which targets are present when troubleshooting
+- **Rule analysis**: Identify duplicate or overlapping targets
+
+## Related functions
+
+- [buildTrie](/api/build-trie) - Constructs the trie that this function searches
+- [containsSource](/api/contains-source) - Checks if a source string exists in the trie
+- [optimizeRules](/api/optimize-rules) - Can detect target conflicts during optimization

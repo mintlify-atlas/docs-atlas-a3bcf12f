@@ -1,0 +1,141 @@
+---
+title: containsSource
+description: Checks if an exact source string exists in the trie
+---
+
+## Overview
+
+The `containsSource` function checks if an exact source string exists in the trie produced by [buildTrie](/api/build-trie). This is useful to verify if a source word has been included in the trie and is therefore searchable and replaceable using the [searchAndReplace](/api/search-and-replace) function.
+
+## Function signature
+
+```typescript
+containsSource(trie: TrieNode, text: string): boolean
+```
+
+## Parameters
+
+<ParamField path="trie" type="TrieNode" required>
+  The trie to search within. This trie should be constructed using the [buildTrie](/api/build-trie) function.
+</ParamField>
+
+<ParamField path="text" type="string" required>
+  The candidate source string to look up. The function checks if this exact string exists as a source in the trie.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="boolean">
+  True if the trie contains the source string, otherwise false. The function returns true only if the string exists as a complete source word with an associated target.
+</ResponseField>
+
+## Example usage
+
+### Basic usage
+
+```typescript
+import { buildTrie, containsSource } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['example', 'sample'],
+    to: 'demo',
+  },
+  {
+    from: ['test'],
+    to: 'verified',
+  },
+];
+
+const trie = buildTrie(rules);
+
+// Check if sources exist in the trie
+console.log(containsSource(trie, 'example'));
+// Output: true
+
+console.log(containsSource(trie, 'sample'));
+// Output: true
+
+console.log(containsSource(trie, 'test'));
+// Output: true
+
+console.log(containsSource(trie, 'notfound'));
+// Output: false
+```
+
+### Checking partial matches
+
+```typescript
+import { buildTrie, containsSource } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['testing'],
+    to: 'verified',
+  },
+];
+
+const trie = buildTrie(rules);
+
+// Only exact matches return true
+console.log(containsSource(trie, 'testing'));
+// Output: true
+
+console.log(containsSource(trie, 'test'));
+// Output: false (partial match, not a complete source)
+
+console.log(containsSource(trie, 'testings'));
+// Output: false (longer than the source)
+```
+
+### Verifying rule coverage
+
+```typescript
+import { buildTrie, containsSource } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['Sufyan', 'Ali', 'Umar'],
+    to: 'Companion',
+  },
+];
+
+const trie = buildTrie(rules);
+
+// Verify all sources were added
+const sources = ['Sufyan', 'Ali', 'Umar'];
+const allPresent = sources.every(source => containsSource(trie, source));
+
+console.log(allPresent);
+// Output: true
+```
+
+## Implementation details
+
+The function performs a character-by-character traversal of the trie:
+
+1. Starting at the root node, iterate through each character of the input text
+2. For each character, check if a corresponding child node exists
+3. If any character is not found, return false immediately
+4. After traversing all characters, check if the final node has a target (indicating a complete source word)
+5. Return true only if a target exists at the final node
+
+## Runtime complexity
+
+The complexity is **O(k)** where:
+- `k` = length of the text string to look up
+
+The function performs a single linear traversal through the trie based on the characters in the input string.
+
+## Use cases
+
+- **Validation**: Verify that expected sources were added to the trie after building
+- **Testing**: Confirm rule coverage in unit tests
+- **Debugging**: Check if a specific source is present when troubleshooting replacement issues
+- **Rule management**: Determine if a source already exists before adding new rules
+
+## Related functions
+
+- [buildTrie](/api/build-trie) - Constructs the trie that this function searches
+- [containsTarget](/api/contains-target) - Checks if a target string exists in the trie
+- [searchAndReplace](/api/search-and-replace) - Uses the trie to perform text replacements

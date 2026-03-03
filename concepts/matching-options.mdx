@@ -1,0 +1,369 @@
+---
+title: Matching options
+description: Control when and how rules match with MatchType, CaseSensitivity, and clipping patterns
+---
+
+## Match types
+
+The `MatchType` enum determines the context in which a rule should match words in the input text. This allows you to control whether a pattern matches anywhere, only as a complete word, or only when surrounded by whitespace.
+
+```typescript
+enum MatchType {
+  Alone = 'a',  // Surrounded by whitespace
+  Any = '',     // Match anywhere (default)
+  Whole = 'w'   // Complete word boundaries
+}
+```
+
+### MatchType.Any
+
+The default behavior. The rule matches the word in **any context**, regardless of surrounding characters.
+
+```javascript
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['cat'],
+    to: 'feline'
+    // match: MatchType.Any is the default
+  }
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, 'The cat sat.'));
+// Output: "The feline sat."
+
+console.log(searchAndReplace(trie, 'scatter'));
+// Output: "sfeline ter" (matches "cat" inside "scatter")
+```
+
+<Warning>
+  `MatchType.Any` will match patterns inside larger words. Use `MatchType.Whole` if you want to avoid this behavior.
+</Warning>
+
+### MatchType.Whole
+
+The rule matches only when the word appears as a **complete word**, not as part of a larger word. Letters and diacritics around the match are disallowed, but punctuation and symbols are allowed.
+
+```javascript
+import { buildTrie, searchAndReplace, MatchType } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['ASWJ'],
+    to: 'Ahl al-Sunnah waʿl-Jamāʿah',
+    options: {
+      match: MatchType.Whole
+    }
+  }
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, 'The belief of ASWJ is clear.'));
+// Output: "The belief of Ahl al-Sunnah waʿl-Jamāʿah is clear."
+
+console.log(searchAndReplace(trie, 'ASWJextended'));
+// Output: "ASWJextended" (no match - part of larger word)
+```
+
+<Info>
+  `MatchType.Whole` uses Unicode-aware letter detection (`\p{L}`) to determine word boundaries, ensuring proper handling of diacritics and international characters.
+</Info>
+
+### MatchType.Alone
+
+The rule matches only when the word is **surrounded by whitespace** (spaces, tabs, newlines).
+
+```javascript
+import { buildTrie, searchAndReplace, MatchType } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['RH'],
+    to: '(may Allah be pleased with him) reported that the Messenger ﷺ said:',
+    options: {
+      match: MatchType.Alone
+    }
+  }
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, 'Abu Hurayrah RH Actions'));
+// Output: "Abu Hurayrah (may Allah be pleased with him) reported that the Messenger ﷺ said: Actions"
+
+console.log(searchAndReplace(trie, 'ARH'));
+// Output: "ARH" (no match - not surrounded by whitespace)
+```
+
+<Tip>
+  `MatchType.Alone` is useful for abbreviations that should only be replaced when they appear as standalone tokens.
+</Tip>
+
+### Comparison table
+
+| Input | Rule | Any | Whole | Alone |
+|-------|------|-----|-------|-------|
+| `"cat sat"` | `cat → feline` | ✅ `"feline sat"` | ✅ `"feline sat"` | ✅ `"feline sat"` |
+| `"scatter"` | `cat → feline` | ✅ `"sfeline ter"` | ❌ `"scatter"` | ❌ `"scatter"` |
+| `"cat,dog"` | `cat → feline` | ✅ `"feline,dog"` | ✅ `"feline,dog"` | ❌ `"cat,dog"` |
+| `" cat "` | `cat → feline` | ✅ `" feline "` | ✅ `" feline "` | ✅ `" feline "` |
+
+## Case sensitivity
+
+The `CaseSensitivity` enum controls how letter casing is handled during matching and replacement.
+
+```typescript
+enum CaseSensitivity {
+  Insensitive = 'i', // Case-insensitive matching with casing adjustment
+  Sensitive = ''     // Case-sensitive matching (default)
+}
+```
+
+### CaseSensitivity.Sensitive (default)
+
+Matching is **case-sensitive**, and the replacement text is inserted exactly as written.
+
+```javascript
+const rules = [
+  {
+    from: ['Example'],
+    to: 'Replacement',
+    options: {
+      casing: CaseSensitivity.Sensitive // default
+    }
+  }
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, 'Example text'));
+// Output: "Replacement text"
+
+console.log(searchAndReplace(trie, 'example text'));
+// Output: "example text" (no match - different case)
+```
+
+### CaseSensitivity.Insensitive
+
+Matching is **case-insensitive**, and the replacement adjusts its initial casing to match the source. If the source starts with a capital letter (ignoring symbols), the replacement will too.
+
+```javascript
+import { buildTrie, searchAndReplace, CaseSensitivity } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['example'],
+    to: 'replacement',
+    options: {
+      casing: CaseSensitivity.Insensitive
+    }
+  }
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, 'example text'));
+// Output: "replacement text"
+
+console.log(searchAndReplace(trie, 'Example text'));
+// Output: "Replacement text" (capitalized to match source)
+
+console.log(searchAndReplace(trie, 'EXAMPLE text'));
+// Output: "REPLACEMENT text" (uppercased to match source)
+```
+
+<Note>
+  During `buildTrie`, case-insensitive rules automatically generate three variants: lowercase, uppercase, and capitalized. This ensures fast lookups without runtime case conversion.
+</Note>
+
+### How casing adjustment works
+
+When `CaseSensitivity.Insensitive` is used:
+
+1. The algorithm finds the **first alphabetic letter** in the matched source word (ignoring symbols)
+2. It determines whether that letter is uppercase or lowercase
+3. It adjusts the **first alphabetic letter** in the replacement to match
+
+```javascript
+const rules = [
+  {
+    from: ['(test)'],
+    to: '(result)',
+    options: { casing: CaseSensitivity.Insensitive }
+  }
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, '(test)'));
+// Output: "(result)"
+
+console.log(searchAndReplace(trie, '(Test)'));
+// Output: "(Result)" - first letter after '(' is capitalized
+```
+
+## Clipping patterns
+
+Clipping patterns allow you to remove specific characters immediately before (`clipStartPattern`) or after (`clipEndPattern`) a match. This is useful for handling punctuation, apostrophes, or other boundary characters.
+
+### TriePattern enum
+
+The `TriePattern` enum provides predefined patterns for common clipping scenarios:
+
+```typescript
+enum TriePattern {
+  Apostrophes = 'apostrophes' // Apostrophe-like characters
+}
+```
+
+`TriePattern.Apostrophes` matches: `'`, `'`, `` ` ``, `ʾ`, `‛`, `ʼ`, `ʻ`, `ʿ`
+
+### clipStartPattern
+
+Removes matching characters **immediately before** the matched word.
+
+```javascript
+import { buildTrie, searchAndReplace, TriePattern } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['test'],
+    to: 'result',
+    options: {
+      clipStartPattern: TriePattern.Apostrophes
+    }
+  }
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, "The 'test worked"));
+// Output: "The result worked" (apostrophe before 'test' is removed)
+```
+
+### clipEndPattern
+
+Removes matching characters **immediately after** the matched word.
+
+```javascript
+const rules = [
+  {
+    from: ['test'],
+    to: 'result',
+    options: {
+      clipEndPattern: /[`'ʾʿ'']+$/
+    }
+  }
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, "The test' worked"));
+// Output: "The result worked" (apostrophe after 'test' is removed)
+```
+
+<Info>
+  Clipping patterns can be either a `RegExp` or a `TriePattern` value. Use custom `RegExp` patterns for advanced clipping logic.
+</Info>
+
+### Combined clipping
+
+You can use both `clipStartPattern` and `clipEndPattern` together:
+
+```javascript
+const rules = [
+  {
+    from: ['word'],
+    to: 'replacement',
+    options: {
+      clipStartPattern: TriePattern.Apostrophes,
+      clipEndPattern: /[`'ʾʿ'']+$/
+    }
+  }
+];
+
+const trie = buildTrie(rules);
+
+console.log(searchAndReplace(trie, "Text 'word' here"));
+// Output: "Text replacement here" (apostrophes on both sides are removed)
+```
+
+<Warning>
+  Clipping patterns must be carefully designed to avoid removing unintended characters. Test your patterns thoroughly with edge cases.
+</Warning>
+
+## Real-world example
+
+Here's a comprehensive example combining multiple matching options:
+
+```javascript
+import {
+  buildTrie,
+  searchAndReplace,
+  MatchType,
+  CaseSensitivity,
+  TriePattern
+} from 'trie-rules';
+
+const rules = [
+  // Abbreviation that must stand alone
+  {
+    from: ['RH'],
+    to: '(may Allah be pleased with him) reported:',
+    options: {
+      match: MatchType.Alone
+    }
+  },
+  
+  // Acronym that must be a complete word
+  {
+    from: ['ASWJ'],
+    to: 'Ahl al-Sunnah waʿl-Jamāʿah',
+    options: {
+      match: MatchType.Whole
+    }
+  },
+  
+  // Case-insensitive with apostrophe clipping
+  {
+    from: ['testword'],
+    to: 'replacement',
+    options: {
+      casing: CaseSensitivity.Insensitive,
+      clipStartPattern: TriePattern.Apostrophes,
+      clipEndPattern: /[`'ʾʿ'']+$/
+    }
+  }
+];
+
+const trie = buildTrie(rules);
+
+const text = `
+  The belief of ASWJ is clear.
+  Abu Hurayrah RH Actions are judged.
+  The 'testword' is here, and Testword' too.
+`;
+
+console.log(searchAndReplace(trie, text));
+/*
+Output:
+  The belief of Ahl al-Sunnah waʿl-Jamāʿah is clear.
+  Abu Hurayrah (may Allah be pleased with him) reported: Actions are judged.
+  The replacement is here, and Replacement too.
+*/
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Apostrophe normalization" icon="quote-right" href="/concepts/apostrophe-normalization">
+    Learn how to handle different apostrophe characters
+  </Card>
+  <Card title="Rules" icon="list-check" href="/concepts/rules">
+    Back to rule structure and configuration
+  </Card>
+</CardGroup>

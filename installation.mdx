@@ -1,0 +1,114 @@
+---
+title: Installation
+description: Install trie-rules using npm, yarn, pnpm, or bun
+---
+
+## Install the package
+
+Choose your preferred package manager to install `trie-rules`:
+
+<CodeGroup>
+
+```bash npm
+npm install trie-rules
+```
+
+```bash yarn
+yarn add trie-rules
+```
+
+```bash pnpm
+pnpm add trie-rules
+```
+
+```bash bun
+bun add trie-rules
+```
+
+</CodeGroup>
+
+<Note>
+  The package is distributed as an ES module with full TypeScript type definitions included.
+</Note>
+
+## Package details
+
+- **Package name:** `trie-rules`
+- **License:** MIT
+- **Repository:** [github.com/ragaeeb/trie-rules](https://github.com/ragaeeb/trie-rules)
+- **Bundle size:** View detailed bundle analysis at [bundlejs.com](https://bundlejs.com/?q=trie-rules%40latest)
+
+## Requirements
+
+<Info>
+  **Runtime requirements:**
+  - Node.js >= 24.0.0
+  - Bun >= 1.3.9 (if using Bun)
+</Info>
+
+The package is compatible with all modern JavaScript runtimes that support ES modules.
+
+## Verify installation
+
+After installation, verify that the package is correctly installed by importing the main functions:
+
+<CodeGroup>
+
+```typescript TypeScript
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+console.log(typeof buildTrie); // 'function'
+console.log(typeof searchAndReplace); // 'function'
+```
+
+```javascript JavaScript
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+console.log(typeof buildTrie); // 'function'
+console.log(typeof searchAndReplace); // 'function'
+```
+
+</CodeGroup>
+
+## What's included
+
+The package exports the following functions and types:
+
+### Core functions
+
+- `buildTrie` - Constructs a trie from an array of rules
+- `searchAndReplace` - Performs search and replace operations using a trie
+- `containsSource` - Checks if a source string exists in the trie
+- `containsTarget` - Checks if a target string exists in the trie
+- `optimizeRules` - Optimizes and consolidates redundant rules
+
+### Types and enums
+
+- `Rule` - Type definition for search and replace rules
+- `TrieNode` - Type definition for trie data structure
+- `BuildTrieOptions` - Configuration options for building tries
+- `SearchAndReplaceOptions` - Configuration options for search operations
+- `CaseSensitivity` - Enum for case matching behavior
+- `MatchType` - Enum for match context requirements
+- `TriePattern` - Enum for predefined clipping patterns
+
+### Utility functions
+
+- `adjustCasing` - Adjusts replacement casing based on source
+- `findFirstAlphaIndex` - Finds the first alphabetic character index
+- `generateCaseVariants` - Generates case variants for a string
+- `isAlphabeticLetter` - Checks if a character is alphabetic
+- `isLetter` - Checks if a character is a letter
+- `isLowerCase` - Checks if a character is lowercase
+- `isUpperCase` - Checks if a character is uppercase
+- `isWordCharacterAt` - Checks if character at position is a word character
+
+<Tip>
+  All exports are available in the package entry point. You can import exactly what you need for optimal tree-shaking.
+</Tip>
+
+## Next steps
+
+<Card title="Quick start" icon="rocket" href="/quickstart">
+  Jump into a quick getting started guide with working examples
+</Card>

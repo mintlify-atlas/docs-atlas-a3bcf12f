@@ -1,0 +1,316 @@
+---
+title: Confirmation callbacks
+description: Implement conditional replacements using confirmCallback to control when rules apply based on context or external conditions.
+---
+
+## Overview
+
+The `confirmCallback` feature adds a confirmation step before making a replacement. This enables context-sensitive replacements where a rule only applies if certain conditions are met.
+
+<Info>
+Confirmation callbacks are particularly useful for transliteration scenarios where the presence of specific words in the surrounding text determines the correct replacement.
+</Info>
+
+## How it works
+
+When a rule includes a `confirm` option, the `searchAndReplace` function invokes your callback function to decide whether the replacement should proceed:
+
+<Steps>
+  <Step title="Match found">
+    The search algorithm finds a match for a rule that has a `confirm` option.
+  </Step>
+  <Step title="Callback invoked">
+    The `confirmCallback` is called with the rule's `anyOf` array.
+  </Step>
+  <Step title="Decision made">
+    Return `true` to allow the replacement, or `false` to skip it.
+  </Step>
+</Steps>
+
+## Basic usage
+
+Define a rule with confirmation options and provide a callback:
+
+```js
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['Maalik', 'Malik'],
+    to: 'Mālik',
+    options: {
+      confirm: { anyOf: ['مالك', 'مَالِكٍ', 'مَالِكٌ'] },
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+const text = 'Maalik went home.';
+
+// Define a callback that checks if any Arabic word is present
+const confirmCallback = (options) =>
+  options.anyOf.some((word) => text.includes(word));
+
+const result = searchAndReplace(trie, text, { confirmCallback });
+
+console.log(result);
+// Output: 'Maalik went home.' (no replacement because Arabic text is absent)
+```
+
+<Note>
+If the callback returns `false`, or if no callback is provided, the replacement will not proceed for rules with `confirm` options.
+</Note>
+
+## Context-sensitive transliteration
+
+Confirmation callbacks excel at disambiguating transliterations based on context:
+
+```js
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['Maalik', 'Malik'],
+    to: 'Mālik',
+    options: {
+      confirm: { anyOf: ['مالك', 'مَالِكٍ', 'مَالِكٌ'] },
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+
+// Text without Arabic context - no replacement
+const text1 = 'Maalik went home.';
+const confirmCallback1 = (options) =>
+  options.anyOf.some((word) => text1.includes(word));
+
+console.log(searchAndReplace(trie, text1, { confirmCallback: confirmCallback1 }));
+// Output: 'Maalik went home.'
+
+// Text with Arabic context - replacement occurs
+const text2 = 'Maalik (مالك) went home.';
+const confirmCallback2 = (options) =>
+  options.anyOf.some((word) => text2.includes(word));
+
+console.log(searchAndReplace(trie, text2, { confirmCallback: confirmCallback2 }));
+// Output: 'Mālik (مالك) went home.'
+```
+
+<Tip>
+This pattern is ideal for bilingual documents where the presence of original-language text indicates the correct transliteration variant.
+</Tip>
+
+## Advanced callback patterns
+
+### External data source
+
+You can query external data sources in your callback:
+
+```js
+const dictionary = new Set(['مالك', 'مَالِكٍ', 'مَالِكٌ']);
+
+const confirmCallback = (options) =>
+  options.anyOf.some((word) => dictionary.has(word));
+
+const result = searchAndReplace(trie, text, { confirmCallback });
+```
+
+### Regular expression matching
+
+Use regex to check for pattern presence:
+
+```js
+const confirmCallback = (options) => {
+  // Check if any of the confirmation words appear in the broader document context
+  const pattern = new RegExp(
+    options.anyOf.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  );
+  return pattern.test(fullDocumentText);
+};
+
+const result = searchAndReplace(trie, text, { confirmCallback });
+```
+
+### Proximity-based confirmation
+
+Check if confirmation words appear near the match:
+
+```js
+const confirmCallback = (options) => {
+  // Extract surrounding context (e.g., 100 characters before and after)
+  const contextStart = Math.max(0, currentIndex - 100);
+  const contextEnd = Math.min(text.length, currentIndex + 100);
+  const context = text.slice(contextStart, contextEnd);
+  
+  return options.anyOf.some((word) => context.includes(word));
+};
+
+const result = searchAndReplace(trie, text, { confirmCallback });
+```
+
+## Multiple confirmation rules
+
+You can define different confirmation criteria for different rules:
+
+```js
+import { buildTrie, searchAndReplace, MatchType } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['Maalik', 'Malik'],
+    to: 'Mālik',
+    options: {
+      match: MatchType.Whole,
+      confirm: { anyOf: ['مالك', 'مَالِكٍ', 'مَالِكٌ'] },
+    },
+  },
+  {
+    from: ['Ali'],
+    to: 'ʿAlī',
+    options: {
+      match: MatchType.Whole,
+      confirm: { anyOf: ['علي', 'عَلِيّ'] },
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+const text = 'Maalik (مالك) and Ali (علي) went home.';
+
+const confirmCallback = (options) =>
+  options.anyOf.some((word) => text.includes(word));
+
+const result = searchAndReplace(trie, text, { confirmCallback });
+console.log(result);
+// Output: 'Mālik (مالك) and ʿAlī (علي) went home.'
+```
+
+<Info>
+Each rule can have its own `anyOf` array. The callback receives the specific options for each rule as it's evaluated.
+</Info>
+
+## Callback signature
+
+The `ConfirmCallback` function has the following signature:
+
+```typescript
+type ConfirmCallback = (confirmOptions: ConfirmOptions) => boolean;
+
+type ConfirmOptions = {
+  anyOf: string[];
+};
+```
+
+<ParamField path="confirmOptions" type="ConfirmOptions">
+  The confirmation options from the rule being evaluated.
+  
+  <Expandable>
+    <ResponseField name="anyOf" type="string[]">
+      An array of strings representing conditions that should be checked. If any of these conditions are met, the callback should return `true`.
+    </ResponseField>
+  </Expandable>
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  Return `true` to allow the replacement, or `false` to prevent it.
+</ResponseField>
+
+## Edge cases
+
+<AccordionGroup>
+  <Accordion title="No callback provided">
+    If no `confirmCallback` is provided to `searchAndReplace`, rules with `confirm` options will not match.
+    
+    ```js
+    const rules = [
+      {
+        from: ['test'],
+        to: 'result',
+        options: { confirm: { anyOf: ['condition'] } },
+      },
+    ];
+    
+    const trie = buildTrie(rules);
+    const result = searchAndReplace(trie, 'test');
+    // Output: 'test' (no replacement because callback is missing)
+    ```
+  </Accordion>
+  
+  <Accordion title="Rules without confirm options">
+    Rules without `confirm` options always apply, regardless of the callback.
+    
+    ```js
+    const rules = [
+      { from: ['test'], to: 'result' }, // No confirm option
+    ];
+    
+    const trie = buildTrie(rules);
+    const result = searchAndReplace(trie, 'test', { confirmCallback: () => false });
+    // Output: 'result' (replacement happens because rule has no confirm option)
+    ```
+  </Accordion>
+  
+  <Accordion title="Callback exceptions">
+    If your callback throws an exception, the replacement will not proceed. Handle errors appropriately:
+    
+    ```js
+    const confirmCallback = (options) => {
+      try {
+        return options.anyOf.some((word) => externalCheck(word));
+      } catch (error) {
+        console.error('Confirmation check failed:', error);
+        return false; // Safe default
+      }
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Performance considerations
+
+<Warning>
+Confirmation callbacks are invoked for every match attempt. Ensure your callback is performant, especially with large texts or complex logic.
+</Warning>
+
+### Optimization strategies
+
+<CardGroup cols={2}>
+  <Card title="Cache results" icon="database">
+    Cache confirmation results for repeated patterns to avoid redundant computation.
+  </Card>
+  <Card title="Precompute conditions" icon="bolt">
+    Build lookup tables or sets before calling `searchAndReplace` rather than computing in the callback.
+  </Card>
+  <Card title="Limit scope" icon="compress">
+    Check local context rather than scanning the entire document in each callback invocation.
+  </Card>
+  <Card title="Short-circuit evaluation" icon="gauge-high">
+    Return early from the callback as soon as a condition is met or fails.
+  </Card>
+</CardGroup>
+
+Example with caching:
+
+```js
+const cache = new Map();
+
+const confirmCallback = (options) => {
+  const key = JSON.stringify(options.anyOf);
+  
+  if (cache.has(key)) {
+    return cache.get(key);
+  }
+  
+  const result = options.anyOf.some((word) => text.includes(word));
+  cache.set(key, result);
+  
+  return result;
+};
+```
+
+## Next steps
+
+- Review [performance characteristics](/guides/performance) and benchmarks
+- Use [optimizeRules](/guides/optimization) to consolidate your rule set
+- Explore [advanced matching](/guides/advanced-matching) options

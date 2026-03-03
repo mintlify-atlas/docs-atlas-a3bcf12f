@@ -1,0 +1,92 @@
+---
+title: Introduction
+description: An efficient trie-based search and replace library for performant text transformations with thousands of rules
+---
+
+<img src="https://raw.githubusercontent.com/ragaeeb/trie-rules/main/icon.png" width="128" alt="trie-rules icon" />
+
+# Introduction
+
+The `trie-rules` project is an efficient search and replace algorithm that performs replacements on any given text based on a predefined rule set.
+
+This project was originally created to replace transliterations of Arabic words in Roman text with their appropriate diacritics in a performant way. However, the rule set structure is flexible enough to apply to a wide range of applications.
+
+<Card title="Live Demo" icon="play" href="https://trie-rules.surge.sh">
+  Try the interactive demo to see trie-rules in action with real-world transliteration rules
+</Card>
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="High-performance trie builder" icon="bolt">
+    Use `buildTrie` to normalize apostrophes and fan out case variants so that lookups remain fast even with thousands of rules
+  </Card>
+  
+  <Card title="Deterministic matching utilities" icon="magnifying-glass">
+    Check for rule coverage with `containsSource` and `containsTarget`, or run full replacements through `searchAndReplace` with opt-in confirmation callbacks
+  </Card>
+  
+  <Card title="Rule optimization" icon="wand-magic-sparkles">
+    Use `optimizeRules` to automatically detect and consolidate redundant patterns: case-insensitive variants, apostrophe normalization, prefix deduplication, subset elimination, and conflict detection
+  </Card>
+  
+  <Card title="Comprehensive text helpers" icon="toolbox">
+    Re-use the exported helpers such as `isAlphabeticLetter`, `findFirstAlphaIndex`, `generateCaseVariants`, `adjustCasing`, and `insertWordIntoTrie` to implement bespoke trie-aware transformations
+  </Card>
+</CardGroup>
+
+## Why trie-based search?
+
+The trie-based approach offers several advantages over traditional regex-based search and replace:
+
+<AccordionGroup>
+  <Accordion title="Performance for large pattern sets">
+    When you have thousands of strings to match, a regex with many alternatives becomes inefficient. A trie structures patterns in a tree, allowing simultaneous comparison of multiple patterns for faster searches, especially when patterns share common prefixes.
+  </Accordion>
+  
+  <Accordion title="Predictable time complexity">
+    Trie-based search runs in linear time relative to the text length, while regex can degrade to exponential complexity with backtracking. The worst-case performance is O(l × k) where l is text length and k is average pattern length.
+  </Accordion>
+  
+  <Accordion title="Custom matching rules">
+    Easily implement custom matching logic like `MatchType.Whole` (word boundaries) and `MatchType.Alone` (whitespace-surrounded) without complex lookahead/lookbehind assertions.
+  </Accordion>
+  
+  <Accordion title="Apostrophe normalization">
+    Treats different apostrophe-like characters (', ', `, ʾ, ʿ) as equivalent, which would be complex and inefficient with regex patterns.
+  </Accordion>
+</AccordionGroup>
+
+## Performance benchmarks
+
+Benchmarks conducted on Apple M2 Pro with 32GB RAM using the sample data from `testing/rules.json`:
+
+| Operation | Average Time | Standard Deviation |
+| --- | --- | --- |
+| `buildTrie` | 2,767,130.81 ns | 12,732.94 ns |
+| `containsSource` | 81.69 ns | 0.22 ns |
+| `containsTarget` | 84,239.77 ns | 688.45 ns |
+| `searchAndReplace` | 71,031.31 ns | 95.09 ns |
+
+<Note>
+  These benchmarks demonstrate the efficiency of trie-based operations, with sub-microsecond lookups and fast replacement operations even on large rule sets.
+</Note>
+
+## Modern toolchain
+
+- Built with lightweight `tsdown` pipeline powered by Bun and TypeScript
+- Uses Biome for linting and formatting
+- Export regression tests via `test:exports` to ensure all public API members are correctly exported
+- Full TypeScript support with comprehensive type definitions
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install trie-rules with your preferred package manager
+  </Card>
+  
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Get started with a working code example
+  </Card>
+</CardGroup>

@@ -1,0 +1,180 @@
+---
+title: Basic usage
+description: Learn the fundamentals of search and replace with trie-rules, from installation to simple text transformations.
+---
+
+## Installation
+
+Install trie-rules using your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm install trie-rules
+```
+
+```bash yarn
+yarn add trie-rules
+```
+
+```bash pnpm
+pnpm i trie-rules
+```
+
+```bash bun
+bun add trie-rules
+```
+
+</CodeGroup>
+
+## Core workflow
+
+The trie-rules library follows a simple two-step workflow:
+
+<Steps>
+  <Step title="Build the trie">
+    Create a trie data structure from your rules using `buildTrie`.
+  </Step>
+  <Step title="Search and replace">
+    Process text using `searchAndReplace` with the built trie.
+  </Step>
+</Steps>
+
+## Simple search and replace
+
+Here's a basic example that demonstrates the core functionality:
+
+```js
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['example', 'sample'],
+    to: 'demo',
+  },
+];
+
+const trie = buildTrie(rules);
+const text = 'This is an example of a sample sentence.';
+const result = searchAndReplace(trie, text);
+
+console.log(result);
+// Output: 'This is an demo of a demo sentence.'
+```
+
+<Note>
+Each rule defines an array of `from` patterns (words to search for) and a single `to` replacement string.
+</Note>
+
+## Multiple replacement targets
+
+You can define multiple rules to handle different replacement scenarios:
+
+```js
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ["Ka'bah"],
+    to: 'Kaʿbah',
+  },
+  {
+    from: ['example', 'sample'],
+    to: 'demo',
+  },
+];
+
+const trie = buildTrie(rules);
+const text = "We visited the Ka'bah yesterday.";
+const replacedText = searchAndReplace(trie, text);
+
+console.log(replacedText);
+// Output: 'We visited the Kaʿbah yesterday.'
+```
+
+## Checking rule coverage
+
+Use the utility functions to verify your trie contains the expected patterns:
+
+<Tabs>
+  <Tab title="containsSource">
+    Check if a source pattern exists in the trie:
+
+    ```js
+    import { buildTrie, containsSource } from 'trie-rules';
+
+    const rules = [
+      { from: ['example', 'sample'], to: 'demo' },
+    ];
+
+    const trie = buildTrie(rules);
+
+    console.log(containsSource(trie, 'example'));
+    // Output: true
+
+    console.log(containsSource(trie, 'notfound'));
+    // Output: false
+    ```
+  </Tab>
+  
+  <Tab title="containsTarget">
+    Check if a target replacement exists in the trie:
+
+    ```js
+    import { buildTrie, containsTarget } from 'trie-rules';
+
+    const rules = [
+      { from: ['example', 'sample'], to: 'demo' },
+    ];
+
+    const trie = buildTrie(rules);
+
+    console.log(containsTarget(trie, 'demo'));
+    // Output: true
+
+    console.log(containsTarget(trie, 'notfound'));
+    // Output: false
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+The `containsSource` function performs exact matching against the normalized patterns stored in the trie.
+</Info>
+
+## Working with apostrophes
+
+When dealing with text that contains various apostrophe-like characters, enable apostrophe normalization:
+
+```js
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ["al-Qur'an"],
+    to: 'al-Qurʾān',
+  },
+];
+
+const trie = buildTrie(rules, { normalizeApostrophes: true });
+
+// All of these variants will match:
+console.log(searchAndReplace(trie, "The recitation of al-Qur'an is important"));
+// Output: "The recitation of al-Qurʾān is important"
+
+console.log(searchAndReplace(trie, 'We study the al-Qur`an daily.'));
+// Output: "We study the al-Qurʾān daily."
+```
+
+<Tip>
+With `normalizeApostrophes: true`, the following characters are treated as equivalent: `'` `'` `` ` `` `ʼ` `ʾ` `ʿ`
+</Tip>
+
+## Next steps
+
+Now that you understand the basics, explore more advanced features:
+
+- Learn about [advanced matching](/guides/advanced-matching) options like whole word and case sensitivity
+- Discover how to [optimize rules](/guides/optimization) to consolidate redundant patterns
+- Implement [confirmation callbacks](/guides/confirmation-callbacks) for conditional replacements
+- Review [performance characteristics](/guides/performance) and benchmarks

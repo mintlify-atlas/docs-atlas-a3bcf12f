@@ -1,0 +1,254 @@
+---
+title: Rules
+description: Understanding the structure and configuration of search and replace rules
+---
+
+## Overview
+
+Rules are the foundation of trie-rules. Each `Rule` defines which source words to search for and what replacement text to use. Rules can be customized with options that control matching behavior, casing, clipping, and more.
+
+## Rule structure
+
+A `Rule` object has three main properties:
+
+```typescript
+type Rule = {
+  from: string[];
+  to: string;
+  options?: RuleOptions;
+};
+```
+
+### from field
+
+The `from` field is an array of strings representing the words or patterns to search for in the input text. Each string in the array is treated as an individual search target.
+
+```javascript
+const rule = {
+  from: ['example', 'sample', 'demo'],
+  to: 'replacement'
+};
+```
+
+<Info>
+  All variants in the `from` array will be replaced with the same `to` value.
+</Info>
+
+### to field
+
+The `to` field is a string that defines what the matched source words should be replaced with. This can include Unicode characters, diacritics, or any other text formatting.
+
+```javascript
+const rule = {
+  from: ["Ka'bah"],
+  to: 'Kaʿbah'
+};
+```
+
+### Real-world example
+
+Here's a practical example for replacing Arabic transliteration abbreviations:
+
+```javascript
+const rules = [
+  {
+    from: [
+      'RA',
+      'r.a',
+      "radi Allahu 'anhu",
+      "radiya Llahu 'anhu",
+      "radiyallāhu 'anhu"
+    ],
+    to: '(may Allah be pleased with him)'
+  },
+  {
+    from: ['RAA', 'رضي الله عنها'],
+    to: '(may Allah be pleased with her)'
+  }
+];
+```
+
+## Rule options
+
+The `options` field allows you to customize how a rule behaves during search and replace operations:
+
+```typescript
+type RuleOptions = {
+  casing?: CaseSensitivity;
+  clipEndPattern?: RegExp | TriePattern;
+  clipStartPattern?: RegExp | TriePattern;
+  confirm?: ConfirmOptions;
+  match?: MatchType;
+  prefix?: string;
+};
+```
+
+### Casing
+
+Controls how letter casing is handled during replacement:
+
+<Tabs>
+  <Tab title="Case sensitive">
+    ```javascript
+    {
+      from: ['example'],
+      to: 'replacement',
+      options: {
+        casing: CaseSensitivity.Sensitive // default
+      }
+    }
+    ```
+    
+    The replacement text will be inserted exactly as written, regardless of the source's casing.
+  </Tab>
+  
+  <Tab title="Case insensitive">
+    ```javascript
+    {
+      from: ['example'],
+      to: 'replacement',
+      options: {
+        casing: CaseSensitivity.Insensitive
+      }
+    }
+    ```
+    
+    The replacement will adjust its initial casing to match the source. If the source starts with a capital letter, the replacement will too.
+  </Tab>
+</Tabs>
+
+<Note>
+  When using `CaseSensitivity.Insensitive`, the trie automatically generates case variants (lowercase, uppercase, and capitalized) for efficient matching.
+</Note>
+
+### Match type
+
+Defines the context in which a rule should match. See [Matching options](/concepts/matching-options) for detailed information.
+
+```javascript
+{
+  from: ['ASWJ'],
+  to: 'Ahl al-Sunnah waʿl-Jamāʿah',
+  options: {
+    match: MatchType.Whole // only match as a complete word
+  }
+}
+```
+
+### Prefix
+
+Adds a prefix string before the replacement text:
+
+```javascript
+{
+  from: ['anotherword'],
+  to: 'substitute',
+  options: {
+    prefix: 'pre-'
+  }
+}
+```
+
+If "anotherword" is matched, it will be replaced with "pre-substitute".
+
+### Clipping patterns
+
+Clipping patterns allow you to remove specific characters immediately before or after a match:
+
+```javascript
+{
+  from: ['testword'],
+  to: 'tested',
+  options: {
+    clipStartPattern: TriePattern.Apostrophes, // Remove apostrophes before
+    clipEndPattern: /[`'ʾʿ'']+$/ // Remove apostrophes after
+  }
+}
+```
+
+<Warning>
+  Clipping patterns use regular expressions. Make sure your patterns are properly escaped and tested.
+</Warning>
+
+### Confirm options
+
+The `confirm` option allows conditional replacements based on contextual information:
+
+```javascript
+{
+  from: ['Maalik', 'Malik'],
+  to: 'Mālik',
+  options: {
+    confirm: {
+      anyOf: ['مالك', 'مَالِكٍ', 'مَالِكٌ']
+    }
+  }
+}
+```
+
+When using `confirm`, you must provide a `confirmCallback` function to `searchAndReplace` that determines whether the replacement should proceed:
+
+```javascript
+const confirmCallback = (options) => {
+  return options.anyOf.some(word => text.includes(word));
+};
+
+const result = searchAndReplace(trie, text, { confirmCallback });
+```
+
+<Tip>
+  The `confirm` feature is useful for context-sensitive replacements, such as matching transliterations only when the original Arabic text is present.
+</Tip>
+
+## Complete example
+
+Here's a comprehensive example combining multiple options:
+
+```javascript
+import { buildTrie, searchAndReplace, MatchType, CaseSensitivity, TriePattern } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['example', 'sample'],
+    to: 'demo'
+  },
+  {
+    from: ['specificword'],
+    to: 'replacement',
+    options: {
+      match: MatchType.Whole
+    }
+  },
+  {
+    from: ['anotherword'],
+    to: 'substitute',
+    options: {
+      match: MatchType.Alone,
+      prefix: 'pre-'
+    }
+  },
+  {
+    from: ['testword'],
+    to: 'tested',
+    options: {
+      casing: CaseSensitivity.Insensitive,
+      clipStartPattern: TriePattern.Apostrophes,
+      clipEndPattern: /[`'ʾʿ'']+$/
+    }
+  }
+];
+
+const trie = buildTrie(rules);
+const result = searchAndReplace(trie, 'This is an example sentence.');
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Trie structure" icon="diagram-project" href="/concepts/trie-structure">
+    Learn how rules are organized into a trie data structure
+  </Card>
+  <Card title="Matching options" icon="bullseye" href="/concepts/matching-options">
+    Explore the different match types and clipping patterns
+  </Card>
+</CardGroup>

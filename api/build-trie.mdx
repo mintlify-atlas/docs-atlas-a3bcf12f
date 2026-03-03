@@ -1,0 +1,149 @@
+---
+title: buildTrie
+description: Builds a trie data structure from an array of search and replace rules
+---
+
+## Overview
+
+The `buildTrie` function constructs a trie data structure from an array of rules. This trie is used to efficiently search through text and replace specified source words with their corresponding target words.
+
+## Function signature
+
+```typescript
+buildTrie(rules: Rule[], buildOptions?: BuildTrieOptions): TrieNode
+```
+
+## Parameters
+
+<ParamField path="rules" type="Rule[]" required>
+  Array of search and replace rules to build the trie from. Each rule contains:
+  
+  <Expandable title="Rule properties">
+    <ParamField path="from" type="string[]" required>
+      Array of source strings to search for in the text
+    </ParamField>
+    
+    <ParamField path="to" type="string" required>
+      Target string to replace the matched source words with
+    </ParamField>
+    
+    <ParamField path="options" type="RuleOptions">
+      Optional configuration for rule behavior:
+      
+      - `match`: Specifies matching context (MatchType.Whole, MatchType.Alone, or MatchType.Any)
+      - `casing`: Controls case sensitivity (CaseSensitivity.Insensitive or CaseSensitivity.Sensitive)
+      - `prefix`: String to add before the replacement if absent in text
+      - `clipStartPattern`: Pattern to trim characters before the match
+      - `clipEndPattern`: Pattern to trim characters after the match
+      - `confirm`: Conditions that must be met for the rule to apply
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="buildOptions" type="BuildTrieOptions">
+  Optional build configuration:
+  
+  <Expandable title="BuildTrieOptions properties">
+    <ParamField path="normalizeApostrophes" type="boolean" default={false}>
+      When true, treats all apostrophe-like characters as equivalent during matching. This allows a rule with "don't" to match variants like "don't", "don`t", etc. Normalization is applied to rule sources during build time and to input text during search time.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="trie" type="TrieNode">
+  The constructed trie with build options stored for use during search operations. The root node of the trie data structure represents the rules for search and replacement.
+</ResponseField>
+
+## Example usage
+
+### Basic usage
+
+```typescript
+import { buildTrie } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['example', 'sample'],
+    to: 'demo',
+  },
+  {
+    from: ['specificword'],
+    to: 'replacement',
+    options: {
+      match: MatchType.Whole,
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+```
+
+### With apostrophe normalization
+
+```typescript
+import { buildTrie, MatchType } from 'trie-rules';
+
+const rules = [
+  {
+    from: ["al-Qur'an"],
+    to: 'al-Qurʾān',
+    options: {
+      match: MatchType.Whole,
+    },
+  },
+  {
+    from: ["Ka'bah"],
+    to: 'Kaʿbah',
+  },
+];
+
+// Build trie with apostrophe normalization enabled
+const trie = buildTrie(rules, { normalizeApostrophes: true });
+
+// The trie can now match "al-Qur'an", "al-Qur`an", etc.
+```
+
+### With case-insensitive matching
+
+```typescript
+import { buildTrie, CaseSensitivity } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['testword'],
+    to: 'tested',
+    options: {
+      casing: CaseSensitivity.Insensitive,
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+// Will match 'testword', 'TestWord', 'TESTWORD', etc.
+```
+
+## Implementation details
+
+The function processes each rule by:
+
+1. Applying apostrophe normalization if enabled
+2. Generating case variants for case-insensitive rules
+3. Inserting each source string into the trie structure
+4. Storing build options at the root for use during search operations
+
+## Runtime complexity
+
+The complexity is **O(n · m · k)** where:
+- `n` = number of rules
+- `m` = average number of source words per rule
+- `k` = average length of source words
+
+This represents the total number of characters across all source words in all rules.
+
+## Related functions
+
+- [searchAndReplace](/api/search-and-replace) - Uses the built trie to perform text replacements
+- [containsSource](/api/contains-source) - Checks if a source string exists in the trie
+- [optimizeRules](/api/optimize-rules) - Optimizes rules before building the trie

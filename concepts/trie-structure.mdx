@@ -1,0 +1,241 @@
+---
+title: Trie structure
+description: Understanding how rules are organized into an efficient trie data structure
+---
+
+## What is a trie?
+
+A **trie** (pronounced "try") is a tree-like data structure that stores strings in a way that allows for fast prefix-based searching. In trie-rules, the trie stores all source words from your rules, enabling efficient pattern matching during search and replace operations.
+
+## Why use a trie?
+
+Compared to traditional regex-based approaches, a trie offers several advantages:
+
+<AccordionGroup>
+  <Accordion title="Performance for large rule sets">
+    When matching against thousands of patterns, a regex with many alternatives (`pattern1|pattern2|...`) becomes inefficient. The regex engine must check each alternative sequentially.
+    
+    A trie structures patterns in a tree, allowing simultaneous comparison of multiple patterns by sharing common prefixes. This leads to significantly faster searches.
+  </Accordion>
+  
+  <Accordion title="Predictable time complexity">
+    Regex matching can degrade to exponential time complexity in worst-case scenarios with complex patterns and backtracking.
+    
+    Trie-based search runs in **O(n)** time, where n is the length of the input text, making performance predictable and consistent.
+  </Accordion>
+  
+  <Accordion title="Custom matching logic">
+    Implementing custom rules like `MatchType.Whole` or `MatchType.Alone` with regex requires complex lookahead/lookbehind assertions.
+    
+    With a trie, custom matching logic is straightforward to implement and extend.
+  </Accordion>
+  
+  <Accordion title="Longest match prioritization">
+    Regex matches based on the order patterns appear in the alternation. Prioritizing longer matches over shorter ones requires careful pattern ordering.
+    
+    A trie naturally handles this by continuing to traverse deeper until no more matches are possible.
+  </Accordion>
+</AccordionGroup>
+
+## TrieNode structure
+
+Each node in the trie is represented by a `TrieNode` object:
+
+```typescript
+type TrieNode = {
+  [key: string]: boolean | BuildTrieOptions | RuleOptions | string | TrieNode | undefined;
+  
+  buildOptions?: BuildTrieOptions;
+  isEndOfWord?: boolean;
+  options?: RuleOptions;
+  target?: string;
+};
+```
+
+### Key properties
+
+#### Dynamic character properties
+
+The index signature `[key: string]` allows each node to have properties representing characters in the source words. Each character points to either:
+- Another `TrieNode` for nested characters
+- `undefined` if the character path doesn't exist
+
+```javascript
+// Example structure for "cat" and "car":
+{
+  'c': {
+    'a': {
+      't': { isEndOfWord: true, target: 'feline' },
+      'r': { isEndOfWord: true, target: 'automobile' }
+    }
+  }
+}
+```
+
+#### isEndOfWord
+
+A boolean flag indicating whether the current node marks the end of a complete word from the rules. When `true`, a match has been found.
+
+#### target
+
+The replacement string for the rule at this node. This is the `to` value from the original `Rule` object.
+
+#### options
+
+The `RuleOptions` associated with this rule, containing configuration like `match`, `casing`, `clipStartPattern`, etc.
+
+#### buildOptions
+
+Global options stored at the trie root. Only present on the root node. Used to pass configuration like `normalizeApostrophes` to search operations.
+
+## Building the trie
+
+The `buildTrie` function constructs the trie from an array of rules:
+
+```typescript
+function buildTrie(rules: Rule[], buildOptions?: BuildTrieOptions): TrieNode
+```
+
+### Build process
+
+For each rule:
+
+1. **Iterate through source words** in the `from` array
+2. **Apply transformations**:
+   - Normalize apostrophes if `normalizeApostrophes` is enabled
+   - Generate case variants if `casing: CaseSensitivity.Insensitive`
+3. **Insert into trie** by traversing character by character:
+   - Create new nodes for characters that don't exist
+   - Reuse existing nodes for shared prefixes
+4. **Mark the end** by setting `isEndOfWord: true` and storing the `target` and `options`
+
+<Note>
+  The build process automatically handles case-insensitive rules by generating lowercase, uppercase, and capitalized variants, so lookups remain fast without runtime case conversion.
+</Note>
+
+### Example: Building a simple trie
+
+```javascript
+import { buildTrie } from 'trie-rules';
+
+const rules = [
+  { from: ['cat', 'cats'], to: 'feline' },
+  { from: ['car'], to: 'automobile' }
+];
+
+const trie = buildTrie(rules);
+```
+
+This creates a trie structure like:
+
+```
+Root
+ └─ c
+    └─ a
+       ├─ t
+       │  ├─ (end) → target: "feline"
+       │  └─ s
+       │     └─ (end) → target: "feline"
+       └─ r
+          └─ (end) → target: "automobile"
+```
+
+## Searching the trie
+
+During `searchAndReplace`, the algorithm:
+
+1. **Starts at position i** in the input text
+2. **Traverses the trie** character by character:
+   - If `normalizeApostrophes` is enabled, apostrophe-like characters are normalized to `'` during lookup
+   - If a character doesn't exist in the current node, the traversal stops
+3. **Tracks valid matches** when encountering nodes with `isEndOfWord: true`
+4. **Validates the match** using `isValidMatch()` to check boundary conditions based on `MatchType`
+5. **Applies the longest valid match** and continues from the end of the replacement
+
+<Tip>
+  The algorithm always prefers the longest match. If both "cat" and "cats" are in the trie, "cats" will match when present in the text.
+</Tip>
+
+### Search complexity
+
+Let:
+- `l` = length of input text
+- `k` = average length of source words
+
+Time complexity: **O(l × k)** in the worst case
+
+In practice, performance is closer to **O(l)** because:
+- The trie allows quick elimination of non-matching paths
+- Not every character leads to a potential match
+- Shared prefixes reduce redundant comparisons
+
+## Example: Apostrophe normalization
+
+When `normalizeApostrophes: true` is set:
+
+```javascript
+const rules = [
+  { from: ["don't"], to: "do not" }
+];
+
+const trie = buildTrie(rules, { normalizeApostrophes: true });
+```
+
+During build:
+- `"don't"` is normalized to `"don't"` (standard apostrophe)
+
+During search:
+- All apostrophe-like characters (`'`, `'`, `` ` ``, `ʼ`, `ʾ`, `ʿ`) in the input are treated as `'`
+- Input `"don't"`, `"don`t"`, and `"don't"` all match the same trie path
+
+<Info>
+  Normalization happens at lookup time for the input text, so the trie structure only stores the normalized form.
+</Info>
+
+## Runtime complexity summary
+
+### buildTrie
+
+Let:
+- `n` = number of rules
+- `m` = average number of sources per rule
+- `k` = average length of source words
+
+**Time complexity**: O(n × m × k)
+
+This represents the total number of characters across all source words in all rules.
+
+### searchAndReplace
+
+Let:
+- `l` = length of input text
+- `k` = average length of source words
+- `p` = potential matches per position (typically small and constant)
+
+**Worst-case complexity**: O(l × k × p)
+
+**Average-case complexity**: O(l)
+
+The average case is close to linear because the trie structure allows fast elimination of non-matching paths.
+
+## Memory efficiency
+
+While a trie may use more memory than a compact regex pattern, memory usage is:
+- **Predictable**: Scales linearly with the total number of unique character paths
+- **Efficient for shared prefixes**: Common prefixes are stored only once
+- **Stable**: No unpredictable memory spikes during matching (unlike regex with capturing groups)
+
+<Warning>
+  Case-insensitive rules generate multiple variants (lowercase, uppercase, capitalized), which increases trie size. Use `CaseSensitivity.Insensitive` judiciously for frequently used rules.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Matching options" icon="bullseye" href="/concepts/matching-options">
+    Learn how MatchType affects when rules are applied
+  </Card>
+  <Card title="Apostrophe normalization" icon="quote-right" href="/concepts/apostrophe-normalization">
+    Deep dive into flexible apostrophe matching
+  </Card>
+</CardGroup>

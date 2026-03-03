@@ -1,0 +1,264 @@
+---
+title: optimizeRules
+description: Optimizes a set of rules by consolidating redundant variations and detecting conflicts
+---
+
+## Overview
+
+The `optimizeRules` function analyzes an array of rules and automatically consolidates redundant patterns, returning an optimized rule set along with statistics and warnings. This reduces the size of your rule set and improves trie build performance.
+
+## Function signature
+
+```typescript
+optimizeRules(rules: Rule[], buildOptions?: BuildTrieOptions): OptimizeResult
+```
+
+## Parameters
+
+<ParamField path="rules" type="Rule[]" required>
+  Array of rules to optimize. Each rule should follow the same structure used in [buildTrie](/api/build-trie).
+</ParamField>
+
+<ParamField path="buildOptions" type="BuildTrieOptions">
+  Optional build configuration affecting optimization:
+  
+  <Expandable title="BuildTrieOptions properties">
+    <ParamField path="normalizeApostrophes" type="boolean" default={false}>
+      When true, the optimizer will consolidate sources that differ only in apostrophe-like characters. For example, "don't" and "don`t" will be treated as equivalent.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="OptimizeResult">
+  The optimization result including optimized rules, savings statistics, and warnings:
+  
+  <Expandable title="OptimizeResult properties">
+    <ResponseField name="optimizedRules" type="Rule[]">
+      The optimized array of rules with redundancies removed and options consolidated.
+    </ResponseField>
+    
+    <ResponseField name="savings" type="object">
+      Statistics about the optimization process:
+      
+      - `rulesRemoved` (number): Number of complete rules removed (e.g., subset rules)
+      - `sourcesRemoved` (number): Number of individual source strings removed from rules
+    </ResponseField>
+    
+    <ResponseField name="warnings" type="object">
+      Warnings about potential issues found during optimization:
+      
+      - `conflicts` (array): Source values that have conflicting target values
+      - `matchTypeConflicts` (array): Source values with conflicting match types
+      - `overwrittenRules` (array): Rules that would be overwritten in the trie
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Optimizations performed
+
+### 1. Case sensitivity consolidation
+
+Detects sources that differ only in case and consolidates them into a single source with `casing: CaseSensitivity.Insensitive`.
+
+```typescript
+// Before
+{ from: ['Source', 'source', 'SOURCE'], to: 'Target' }
+
+// After
+{ from: ['Source'], options: { casing: 'i' }, to: 'Target' }
+```
+
+### 2. Apostrophe normalization
+
+When `normalizeApostrophes: true` is set, consolidates sources that differ only in apostrophe-like characters.
+
+```typescript
+// Before (with normalizeApostrophes: true)
+{ from: ["don't", "don't", "don`t"], to: "don't" }
+
+// After
+{ from: ["don't"], to: "don't" }
+```
+
+### 3. Prefix optimization
+
+Detects redundant prefix variations and adds a `prefix` option instead.
+
+```typescript
+// Before
+{ from: ['Bukhari', 'al-Bukhari'], to: 'al-Bukhārī' }
+
+// After
+{ from: ['Bukhari'], options: { prefix: 'al-' }, to: 'Bukhārī' }
+```
+
+### 4. Clip pattern optimization
+
+Detects leading/trailing apostrophe-like characters and adds `clipStartPattern` / `clipEndPattern` options.
+
+```typescript
+// Before
+{ from: ["'word", "word"], to: 'Word' }
+
+// After
+{ from: ['word'], options: { clipStartPattern: 'apostrophes' }, to: 'Word' }
+```
+
+### 5. Subset elimination
+
+Removes rules whose sources are a subset of another rule with the same target.
+
+```typescript
+// Before
+[
+  { from: ['Source1', 'Source2', 'Source3'], to: 'Target' },
+  { from: ['Source1', 'Source2'], to: 'Target' }
+]
+
+// After
+[
+  { from: ['Source1', 'Source2', 'Source3'], to: 'Target' }
+]
+```
+
+### 6. Conflict detection
+
+Warns when the same source maps to different targets.
+
+### 7. Match type consolidation
+
+Merges rules with different `MatchType` values for the same source/target, keeping the most permissive.
+
+## Example usage
+
+### Basic usage
+
+```typescript
+import { optimizeRules } from 'trie-rules';
+
+const rules = [
+  { from: ['Source', 'source'], to: 'Target' },
+  { from: ['Bukhari', 'al-Bukhari'], to: 'al-Bukhārī' },
+  { from: ['Source1', 'Source2', 'Source3'], to: 'Target' },
+  { from: ['Source1', 'Source2'], to: 'Target' },
+];
+
+const result = optimizeRules(rules);
+
+console.log(result.optimizedRules);
+// Consolidated rules with fewer sources and automatic options
+
+console.log(result.savings);
+// { rulesRemoved: 1, sourcesRemoved: 3 }
+
+console.log(result.warnings);
+// { conflicts: [], matchTypeConflicts: [], overwrittenRules: [] }
+```
+
+### With apostrophe normalization
+
+```typescript
+import { optimizeRules } from 'trie-rules';
+
+const rules = [
+  { from: ["don't", "don't", "don`t"], to: "don't" },
+  { from: ["Ka'bah", "Ka`bah"], to: 'Kaʿbah' },
+];
+
+const result = optimizeRules(rules, { normalizeApostrophes: true });
+
+console.log(result.optimizedRules);
+// [
+//   { from: ["don't"], to: "don't" },
+//   { from: ["Ka'bah"], to: 'Kaʿbah' }
+// ]
+
+console.log(result.savings.sourcesRemoved);
+// 3 (consolidated 3 sources)
+```
+
+### Handling conflicts
+
+```typescript
+import { optimizeRules } from 'trie-rules';
+
+const rules = [
+  { from: ['test'], to: 'Test1' },
+  { from: ['test'], to: 'Test2' },
+];
+
+const result = optimizeRules(rules);
+
+console.log(result.warnings.conflicts);
+// [
+//   {
+//     from: 'test',
+//     conflictingTo: ['Test1', 'Test2']
+//   }
+// ]
+```
+
+### Using optimized rules with buildTrie
+
+```typescript
+import { optimizeRules, buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  { from: ['Example', 'example', 'EXAMPLE'], to: 'Demo' },
+  { from: ['Test', 'test'], to: 'Verified' },
+];
+
+// Optimize before building trie
+const { optimizedRules, savings } = optimizeRules(rules);
+
+console.log(`Removed ${savings.sourcesRemoved} sources`);
+// Output: Removed 3 sources
+
+// Build trie with optimized rules
+const trie = buildTrie(optimizedRules);
+
+// Use as normal
+const result = searchAndReplace(trie, 'This is an example test.');
+console.log(result);
+// Output: 'This is an Demo Verified.'
+```
+
+## Implementation details
+
+The optimization process follows these steps:
+
+1. **Match type conflict handling** - Consolidates rules with different match types for the same source/target
+2. **Target grouping** - Groups rules by target value and options for analysis
+3. **Group optimization** - For each group:
+   - Deduplicates exact matches
+   - Consolidates apostrophe variants
+   - Detects case consolidation opportunities
+   - Optimizes prefix usage
+   - Optimizes clip patterns
+4. **Subset removal** - Eliminates redundant subset rules
+5. **Conflict detection** - Identifies sources mapping to different targets
+
+## Runtime complexity
+
+The complexity depends on the optimization steps:
+
+- Grouping: **O(n · m)** where n = number of rules, m = average sources per rule
+- Per-group optimization: **O(m²)** for comparison operations
+- Subset removal: **O(n²)** for pairwise rule comparison
+
+Overall complexity is approximately **O(n² + n · m²)** in the worst case.
+
+## Best practices
+
+1. **Always run optimization before building the trie** - This reduces build time and memory usage
+2. **Review warnings** - Check conflicts and overwritten rules to ensure your rule set behaves as expected
+3. **Use apostrophe normalization** - If your rules contain apostrophe variations, enable this option
+4. **Monitor savings** - Track the number of sources/rules removed to measure optimization impact
+
+## Related functions
+
+- [buildTrie](/api/build-trie) - Uses the optimized rules to build a trie
+- [containsTarget](/api/contains-target) - Can verify targets after optimization
+- [searchAndReplace](/api/search-and-replace) - Uses the trie built from optimized rules

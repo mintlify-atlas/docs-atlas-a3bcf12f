@@ -1,0 +1,99 @@
+---
+title: Enums
+description: Enumeration types for controlling match behavior and casing in trie-rules
+---
+
+## CaseSensitivity
+
+Enumerates the case sensitivity options for matching and replacement.
+
+```typescript
+enum CaseSensitivity {
+  Insensitive = 'i',
+  Sensitive = ''
+}
+```
+
+<ResponseField name="Insensitive" type="'i'">
+  The matching is case-insensitive, and replacement should take into account the case of the initial of the "from". If the "from" starts with a capital (ignoring all symbols), then so will the replacement.
+</ResponseField>
+
+<ResponseField name="Sensitive" type="''">
+  The matching is case-sensitive, so the replacement's first initial will not reflect the initial casing of the first letter of the "from".
+</ResponseField>
+
+### Example
+
+```typescript
+import { CaseSensitivity } from 'trie-rules';
+
+const rule = {
+  from: ['hello'],
+  to: 'hi',
+  options: { casing: CaseSensitivity.Insensitive }
+};
+```
+
+## MatchType
+
+Enumerates the types of matches that can be performed.
+
+```typescript
+enum MatchType {
+  Alone = 'a',
+  Any = '',
+  Whole = 'w'
+}
+```
+
+<ResponseField name="Alone" type="'a'">
+  The rule should match the word when it appears alone, surrounded by whitespace.
+</ResponseField>
+
+<ResponseField name="Any" type="''">
+  The rule should match the word in any context, regardless of surrounding characters.
+</ResponseField>
+
+<ResponseField name="Whole" type="'w'">
+  The rule should match the word as a whole, ensuring it is not part of a larger word.
+</ResponseField>
+
+### Example
+
+```typescript
+import { MatchType } from 'trie-rules';
+
+const rule = {
+  from: ['test'],
+  to: 'exam',
+  options: { match: MatchType.Whole }
+};
+// Matches "test" but not "testing"
+```
+
+## TriePattern
+
+Enumerates predefined patterns for clipping during search and replace operations.
+
+```typescript
+enum TriePattern {
+  Apostrophes = 'apostrophes'
+}
+```
+
+<ResponseField name="Apostrophes" type="'apostrophes'">
+  Represents apostrophe-like characters used in word boundaries or contractions.
+</ResponseField>
+
+### Example
+
+```typescript
+import { TriePattern } from 'trie-rules';
+
+const rule = {
+  from: ['word'],
+  to: 'replacement',
+  options: { clipEndPattern: TriePattern.Apostrophes }
+};
+// Clips apostrophe-like characters at the end of matches
+```

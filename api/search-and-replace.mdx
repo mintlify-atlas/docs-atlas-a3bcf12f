@@ -1,0 +1,162 @@
+---
+title: searchAndReplace
+description: Searches for and replaces text based on a trie constructed from rules
+---
+
+## Overview
+
+The `searchAndReplace` function takes a trie data structure and a text string as inputs and searches the text for words that match any of the sources described in the trie. When a match is found, it replaces the word in the text with the corresponding target word from the trie.
+
+## Function signature
+
+```typescript
+searchAndReplace(trie: TrieNode, text: string, searchOptions?: SearchAndReplaceOptions): string
+```
+
+## Parameters
+
+<ParamField path="trie" type="TrieNode" required>
+  The trie data structure constructed using the [buildTrie](/api/build-trie) function. This trie contains the rules for search and replacement operations.
+</ParamField>
+
+<ParamField path="text" type="string" required>
+  The input text to search and replace. The function will scan this text for matches against the trie.
+</ParamField>
+
+<ParamField path="searchOptions" type="SearchAndReplaceOptions">
+  Optional configurations for search and replace behavior:
+  
+  <Expandable title="SearchAndReplaceOptions properties">
+    <ParamField path="confirmCallback" type="ConfirmCallback">
+      A callback function that determines whether a rule should be considered based on confirmation options. Allows for dynamic decision-making during the replacement process.
+      
+      ```typescript
+      type ConfirmCallback = (confirmOptions: ConfirmOptions) => boolean;
+      ```
+    </ParamField>
+    
+    <ParamField path="log" type="function">
+      A logging function that receives information about the current node being processed. Useful for debugging or tracking the replacement process.
+      
+      ```typescript
+      log?({ node }: { node: TrieNode }): void
+      ```
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="string">
+  The modified text after replacements. A new string with all occurrences of the source words replaced by their corresponding target words as defined by the rules in the trie.
+</ResponseField>
+
+## Example usage
+
+### Basic usage
+
+```typescript
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+// Define your rules
+const rules = [
+  {
+    from: ["Ka'bah"],
+    to: 'Kaʿbah',
+  },
+];
+
+// Build the trie from the rules with apostrophe normalization
+const trie = buildTrie(rules, { normalizeApostrophes: true });
+
+// The text you want to process
+const text = 'We visited the Ka`bah yesterday.';
+
+// Perform the search and replace operation
+const replacedText = searchAndReplace(trie, text);
+
+console.log(replacedText);
+// Output: 'We visited the Kaʿbah yesterday.'
+```
+
+### With confirmation callback
+
+```typescript
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    to: 'Mālik',
+    from: ['Maalik', 'Malik'],
+    options: { 
+      match: 'whole', 
+      confirm: { anyOf: ['مالك', 'مَالِكٍ', 'مَالِكٌ'] } 
+    },
+  },
+];
+
+const trie = buildTrie(rules);
+const text = 'Maalik went home. مالك';
+
+// Only replace if Arabic text is present
+const confirmCallback = (options) => 
+  options.anyOf.some((word) => text.includes(word));
+
+const replacedText = searchAndReplace(trie, text, { confirmCallback });
+
+console.log(replacedText);
+// Output: 'Mālik went home. مالك'
+```
+
+### With logging
+
+```typescript
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ['example'],
+    to: 'demo',
+  },
+];
+
+const trie = buildTrie(rules);
+const text = 'This is an example.';
+
+const replacedText = searchAndReplace(trie, text, {
+  log: ({ node }) => {
+    console.log('Matched node:', node.target);
+  },
+});
+
+// Output: Matched node: demo
+// Result: 'This is an demo.'
+```
+
+## Behavior details
+
+### Apostrophe normalization
+
+If the trie was built with `normalizeApostrophes: true`, the search operation will automatically treat all apostrophe-like characters (', ', `, ʾ, ʿ) as equivalent to the standard apostrophe (') for matching purposes.
+
+### Match precedence
+
+When multiple patterns can match at the same position, the function prioritizes longer matches over shorter ones by tracking the last valid match and continuing to search for potentially longer matches.
+
+### Clipping behavior
+
+The function handles clipping adjustments for rules that specify `clipStartPattern` or `clipEndPattern` options, removing specified characters immediately before or after the match.
+
+## Runtime complexity
+
+The complexity is **O(l · k)** in the worst case, where:
+- `l` = length of the text to search through
+- `k` = average length of source words
+
+In average and best-case scenarios, performance is closer to **O(l)** since the trie structure allows for quick elimination of non-matching paths.
+
+## Related functions
+
+- [buildTrie](/api/build-trie) - Constructs the trie used by this function
+- [containsSource](/api/contains-source) - Checks if a source string exists in the trie
+- [containsTarget](/api/contains-target) - Checks if a target string exists in the trie

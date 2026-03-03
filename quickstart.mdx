@@ -1,80 +1,189 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get started with trie-rules in minutes with a complete working example
 ---
 
-## Get started in three steps
+Get up and running with trie-rules in just a few steps. This guide will walk you through installation, building your first trie, and performing search and replace operations.
 
-Get your documentation site running locally and make your first customization.
+## Installation
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Install the package">
+    Install trie-rules using your preferred package manager:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    <CodeGroup>
+    ```bash npm
+    npm install trie-rules
+    ```
 
-### Step 2: Deploy your changes
+    ```bash yarn
+    yarn add trie-rules
+    ```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```bash pnpm
+    pnpm add trie-rules
+    ```
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```bash bun
+    bun add trie-rules
+    ```
+    </CodeGroup>
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Import the library">
+    Import the functions you need from trie-rules:
 
-### Step 3: Go live
+    <Tabs>
+      <Tab title="TypeScript">
+        ```typescript
+        import { buildTrie, searchAndReplace, MatchType, CaseSensitivity } from 'trie-rules';
+        ```
+      </Tab>
+      <Tab title="JavaScript">
+        ```javascript
+        const { buildTrie, searchAndReplace, MatchType, CaseSensitivity } = require('trie-rules');
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Create your first rule set">
+    Define rules that specify what text to find and what to replace it with:
+
+    ```typescript
+    const rules = [
+      {
+        from: ['example', 'sample'],
+        to: 'demo',
+      },
+      {
+        from: ['specificword'],
+        to: 'replacement',
+        options: {
+          match: MatchType.Whole,
+        },
+      },
+      {
+        from: ["al-Qur'an"],
+        to: 'al-Qurʾān',
+        options: {
+          match: MatchType.Whole,
+        },
+      },
+    ];
+    ```
+  </Step>
+
+  <Step title="Build the trie">
+    Construct a trie data structure from your rules:
+
+    ```typescript
+    const trie = buildTrie(rules, { normalizeApostrophes: true });
+    ```
+
+    <Info>
+      The `normalizeApostrophes` option treats all apostrophe-like characters (', ', `, ʾ, ʿ) as equivalent during matching.
+    </Info>
+  </Step>
+
+  <Step title="Perform search and replace">
+    Use the trie to transform your text:
+
+    ```typescript
+    const text = 'This is an example of text. We visited the Ka`bah yesterday.';
+    const result = searchAndReplace(trie, text);
+    console.log(result);
+    // Output: 'This is a demo of text. We visited the Kaʿbah yesterday.'
+    ```
+  </Step>
+</Steps>
+
+## Complete example
+
+Here's a complete working example that demonstrates basic usage:
+
+<CodeGroup>
+```typescript TypeScript
+import { buildTrie, searchAndReplace, MatchType } from 'trie-rules';
+
+// Define your rules
+const rules = [
+  {
+    from: ['hello', 'hi'],
+    to: 'greetings',
+  },
+  {
+    from: ['world'],
+    to: 'universe',
+    options: {
+      match: MatchType.Whole,
+    },
+  },
+];
+
+// Build the trie
+const trie = buildTrie(rules);
+
+// Transform text
+const text = 'Hello world! Say hi to the world.';
+const result = searchAndReplace(trie, text);
+
+console.log(result);
+// Output: 'greetings universe! Say greetings to the universe.'
+```
+
+```javascript JavaScript
+const { buildTrie, searchAndReplace, MatchType } = require('trie-rules');
+
+// Define your rules
+const rules = [
+  {
+    from: ['hello', 'hi'],
+    to: 'greetings',
+  },
+  {
+    from: ['world'],
+    to: 'universe',
+    options: {
+      match: MatchType.Whole,
+    },
+  },
+];
+
+// Build the trie
+const trie = buildTrie(rules);
+
+// Transform text
+const text = 'Hello world! Say hi to the world.';
+const result = searchAndReplace(trie, text);
+
+console.log(result);
+// Output: 'greetings universe! Say greetings to the universe.'
+```
+</CodeGroup>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Now that you have trie-rules working, explore these key features:
 
 <CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api/build-trie">
+    Explore the complete API documentation
+  </Card>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+  <Card title="Advanced Matching" icon="sliders" href="/guides/advanced-matching">
+    Learn about match types, case sensitivity, and clipping
+  </Card>
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+  <Card title="Rule Optimization" icon="gauge-high" href="/guides/optimization">
+    Automatically consolidate redundant patterns
+  </Card>
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Live Demo" icon="play" href="https://trie-rules.surge.sh">
+    Try the interactive demo in your browser
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+<Tip>
+  Check out the [performance guide](/guides/performance) to see how trie-rules compares to regex-based solutions.
+</Tip>

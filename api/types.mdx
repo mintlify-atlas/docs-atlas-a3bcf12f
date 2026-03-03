@@ -1,0 +1,264 @@
+---
+title: Types
+description: TypeScript type definitions for rules, options, and trie structures in trie-rules
+---
+
+## BuildTrieOptions
+
+Options that apply to the trie globally.
+
+```typescript
+type BuildTrieOptions = {
+  normalizeApostrophes?: boolean;
+};
+```
+
+<ResponseField name="normalizeApostrophes" type="boolean">
+  When true, treats all apostrophe-like characters as equivalent during matching. This allows a rule with "don't" to match "don't", "don't", "don\`t", etc.
+</ResponseField>
+
+## ConfirmCallback
+
+A callback function used to determine if a rule should be considered based on confirmation options.
+
+```typescript
+type ConfirmCallback = (confirmOptions: ConfirmOptions) => boolean;
+```
+
+<ParamField path="confirmOptions" type="ConfirmOptions" required>
+  The options specifying the conditions for confirmation.
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  A boolean indicating whether the rule is considered (true) or not (false).
+</ResponseField>
+
+## OptimizeResult
+
+Result of rule optimization including optimized rules and statistics.
+
+```typescript
+type OptimizeResult = {
+  optimizedRules: Rule[];
+  savings: {
+    rulesRemoved: number;
+    sourcesRemoved: number;
+  };
+  warnings: {
+    conflicts: Array<{
+      from: string;
+      conflictingTo: string[];
+    }>;
+    matchTypeConflicts: Array<{
+      from: string;
+      rules: Rule[];
+    }>;
+    overwrittenRules: Array<{
+      from: string;
+      kept: Rule;
+      discarded: Rule[];
+    }>;
+  };
+};
+```
+
+<ResponseField name="optimizedRules" type="Rule[]">
+  The optimized array of rules with redundancies removed and options consolidated.
+</ResponseField>
+
+<ResponseField name="savings" type="object">
+  Statistics about the optimization process.
+  
+  <Expandable title="properties">
+    <ResponseField name="rulesRemoved" type="number">
+      Number of complete rules removed (e.g., subset rules).
+    </ResponseField>
+    
+    <ResponseField name="sourcesRemoved" type="number">
+      Number of individual source strings removed from rules.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="warnings" type="object">
+  Warnings about potential issues found during optimization.
+  
+  <Expandable title="properties">
+    <ResponseField name="conflicts" type="Array<object>">
+      From values that have conflicting to values.
+      
+      <Expandable title="item properties">
+        <ResponseField name="from" type="string">
+          The source string with conflicts.
+        </ResponseField>
+        
+        <ResponseField name="conflictingTo" type="string[]">
+          The conflicting target values.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="matchTypeConflicts" type="Array<object>">
+      From values with conflicting match types.
+      
+      <Expandable title="item properties">
+        <ResponseField name="from" type="string">
+          The source string with match type conflicts.
+        </ResponseField>
+        
+        <ResponseField name="rules" type="Rule[]">
+          The rules with conflicting match types.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="overwrittenRules" type="Array<object>">
+      Rules that would be overwritten in the trie.
+      
+      <Expandable title="item properties">
+        <ResponseField name="from" type="string">
+          The source string with overwritten rules.
+        </ResponseField>
+        
+        <ResponseField name="kept" type="Rule">
+          The rule that will be kept.
+        </ResponseField>
+        
+        <ResponseField name="discarded" type="Rule[]">
+          The rules that will be discarded.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Rule
+
+Represents a single search and replace rule. Defines the source words to search for and the target replacement.
+
+```typescript
+type Rule = {
+  from: string[];
+  to: string;
+  options?: RuleOptions;
+};
+```
+
+<ResponseField name="from" type="string[]" required>
+  An array of strings representing the words or patterns to search for. Each string in the array is treated as an individual search target.
+</ResponseField>
+
+<ResponseField name="to" type="string" required>
+  The target string to replace the matched source words with. Can include additional formatting or contextual information.
+</ResponseField>
+
+<ResponseField name="options" type="RuleOptions">
+  Options that modify the behavior of the rule, such as casing and clipping.
+</ResponseField>
+
+## RuleOptions
+
+Options that define how a rule behaves during search and replace operations.
+
+```typescript
+type RuleOptions = {
+  casing?: CaseSensitivity;
+  clipEndPattern?: RegExp | TriePattern;
+  clipStartPattern?: RegExp | TriePattern;
+  confirm?: ConfirmOptions;
+  match?: MatchType;
+  prefix?: string;
+};
+```
+
+<ResponseField name="casing" type="CaseSensitivity">
+  Specifies how casing should be handled during replacement. Defaults to case-sensitive if not provided.
+</ResponseField>
+
+<ResponseField name="clipEndPattern" type="RegExp | TriePattern">
+  A regular expression or predefined pattern to determine characters to clip at the end of a match. Useful for removing trailing punctuation or symbols.
+</ResponseField>
+
+<ResponseField name="clipStartPattern" type="RegExp | TriePattern">
+  A regular expression or predefined pattern to determine characters to clip at the start of a match. Useful for removing leading punctuation or symbols.
+</ResponseField>
+
+<ResponseField name="confirm" type="ConfirmOptions">
+  Options that determine whether the rule should be confirmed before being applied.
+</ResponseField>
+
+<ResponseField name="match" type="MatchType">
+  Specifies the type of match required for the rule to be applied. Determines the context in which the rule should match words.
+</ResponseField>
+
+<ResponseField name="prefix" type="string">
+  A prefix string to be added before the replacement text. Useful for maintaining consistent formatting or adding necessary context.
+</ResponseField>
+
+## SearchAndReplaceOptions
+
+Options for configuring search and replace operations.
+
+```typescript
+type SearchAndReplaceOptions = {
+  confirmCallback?: ConfirmCallback;
+  log?({ node }: { node: TrieNode }): void;
+};
+```
+
+<ResponseField name="confirmCallback" type="ConfirmCallback">
+  A callback function that determines whether a rule should be considered based on confirmation options. Allows for dynamic decision-making during the replacement process.
+</ResponseField>
+
+<ResponseField name="log" type="function">
+  A logging function that receives information about the current node being processed. Useful for debugging or tracking the replacement process.
+  
+  <Expandable title="parameters">
+    <ParamField path="params" type="object" required>
+      <Expandable title="properties">
+        <ParamField path="node" type="TrieNode" required>
+          The current TrieNode being processed.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ResponseField>
+
+## TrieNode
+
+Represents a node within a trie data structure used for efficient search and replace operations.
+
+```typescript
+type TrieNode = {
+  [key: string]: boolean | BuildTrieOptions | RuleOptions | string | TrieNode | undefined;
+  buildOptions?: BuildTrieOptions;
+  isEndOfWord?: boolean;
+  options?: RuleOptions;
+  target?: string;
+};
+```
+
+<ResponseField name="[key: string]" type="boolean | BuildTrieOptions | RuleOptions | string | TrieNode | undefined">
+  An index signature allowing dynamic properties. Each key represents a character, and the value can be:
+  - A boolean indicating if it's the end of a word.
+  - RuleOptions modifying the rule's behavior.
+  - A string representing the target replacement.
+  - Another TrieNode for nested characters.
+  - Undefined if the character path does not exist.
+</ResponseField>
+
+<ResponseField name="buildOptions" type="BuildTrieOptions">
+  Build options stored at the trie root to be used during search operations. Only present on the root node.
+</ResponseField>
+
+<ResponseField name="isEndOfWord" type="boolean">
+  Indicates whether the current node marks the end of a complete word. Useful for determining when a match is found.
+</ResponseField>
+
+<ResponseField name="options" type="RuleOptions">
+  Options associated with the rule at this node. Can modify behavior such as casing, clipping, and matching types.
+</ResponseField>
+
+<ResponseField name="target" type="string">
+  The target replacement string for the rule at this node. Defines what the matched word should be replaced with.
+</ResponseField>

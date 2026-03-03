@@ -1,0 +1,319 @@
+---
+title: Performance
+description: Understand the performance characteristics, runtime complexity, and benchmarks that make trie-rules efficient for large-scale search and replace operations.
+---
+
+## Benchmark results
+
+We conducted benchmarks on core functions using [ESBench](https://esbench.vercel.app/) with real-world data sets. The following results reflect the average time per operation:
+
+<Note>
+Benchmarks were performed on an **Apple M2 Pro** with **32GB RAM** using the `testing/rules.json` sample data.
+</Note>
+
+| Function | Average Time | Standard Deviation |
+|----------|--------------|-------------------|
+| `buildTrie` | 2,767,130.81 ns | 12,732.94 ns |
+| `containsSource` | 81.69 ns | 0.22 ns |
+| `containsTarget` | 84,239.77 ns | 688.45 ns |
+| `searchAndReplace` | 71,031.31 ns | 95.09 ns |
+
+### Key takeaways
+
+<CardGroup cols={3}>
+  <Card title="Fast lookups" icon="magnifying-glass">
+    `containsSource` completes in ~82 nanoseconds, demonstrating the trie's efficiency for exact lookups.
+  </Card>
+  <Card title="Quick replacements" icon="rotate">
+    `searchAndReplace` processes text in ~71 microseconds on average, enabling real-time transformations.
+  </Card>
+  <Card title="One-time build cost" icon="hammer">
+    `buildTrie` takes ~2.8 milliseconds, a one-time cost that amortizes well for repeated searches.
+  </Card>
+</CardGroup>
+
+## Runtime complexity
+
+Understanding the algorithmic complexity helps you predict performance at scale:
+
+### buildTrie complexity
+
+Let:
+- **n** = number of rules
+- **m** = average number of source words per rule
+- **k** = average length of source words
+
+The `buildTrie` function iterates over each rule and each source word within that rule. For each character in a source word, it performs a constant-time check and possibly inserts a new node.
+
+**Complexity:** `O(n · m · k)`
+
+This is effectively linear in the total number of characters across all source words in all rules.
+
+<Info>
+For a typical rule set with 1,000 rules, averaging 3 source words per rule, and 10 characters per word, `buildTrie` processes ~30,000 characters.
+</Info>
+
+### searchAndReplace complexity
+
+Let:
+- **l** = length of the text to search through
+- **k** = average length of source words
+- **p** = potential matches at each position (typically small and constant)
+
+For each character in the text, in the worst case, the function might check **k** characters deep into the trie. However, the trie structure allows for quick elimination of non-matching paths.
+
+**Worst-case complexity:** `O(l · k · p)`
+
+**Average/best-case complexity:** `O(l)`
+
+<Tip>
+In practice, performance is closer to `O(l)` because not every character leads to a match, and the trie allows for efficient pruning.
+</Tip>
+
+### Space complexity
+
+The trie's memory usage scales with:
+- Number of unique character paths
+- Shared prefixes (which reduce memory)
+- Case variants (when using `CaseSensitivity.Insensitive`)
+
+**Complexity:** `O(n · m · k)` in the worst case (no shared prefixes)
+
+In practice, shared prefixes significantly reduce memory usage.
+
+## Advantages over regex
+
+The trie-based approach offers several advantages over regex-based search and replace:
+
+### 1. Performance for large pattern sets
+
+A regex with many alternatives separated by pipes becomes inefficient:
+
+```js
+// Regex approach - gets slower as patterns increase
+const regex = new RegExp('pattern1|pattern2|pattern3|...|pattern1000', 'g');
+const result = text.replace(regex, (matched) => dictionary[matched]);
+```
+
+The regex engine must check each alternative sequentially. A trie allows simultaneous comparison of multiple patterns by sharing common prefixes.
+
+<Warning>
+With thousands of patterns, regex performance degrades significantly compared to trie-based search.
+</Warning>
+
+### 2. Predictable time complexity
+
+Regex matching can degrade to exponential time complexity with complex patterns or backtracking:
+
+```js
+// Regex with backtracking - unpredictable performance
+const regex = /(a+)+b/;
+```
+
+Trie-based search operates in linear time relative to the text length, providing predictable performance.
+
+<Info>
+Trie search has **linear worst-case time complexity**, while regex can exhibit exponential behavior with certain patterns.
+</Info>
+
+### 3. Memory efficiency
+
+While a trie may consume more memory than a compact regex pattern, the trie's memory usage is predictable and scales linearly. Complex regexes with many capturing groups or backreferences can consume unpredictable amounts of memory.
+
+### 4. Match precedence and overlap
+
+With regex, if multiple patterns match the same text, the engine chooses based on order:
+
+```js
+const regex = /Ali|Alison/g;
+'Alison'.replace(regex, (m) => dictionary[m]);
+// Matches 'Ali' first, leaving 'son'
+```
+
+A trie naturally prioritizes longer matches by checking for `isEndOfWord` at each step.
+
+<Tip>
+Tries inherently prefer the longest match, which is often the desired behavior for word replacement.
+</Tip>
+
+### 5. Custom matching rules
+
+Implementing custom logic like `MatchType.Whole`, `MatchType.Alone`, or prefix handling with regex requires complex lookahead/lookbehind assertions:
+
+```js
+// Complex regex with assertions
+const Bounded = (word) => `\\b${word}\\b`;
+const Alone = (word) => `(?<!\\S)${word}(?!\\S)`;
+```
+
+These assertions:
+- Are cumbersome to construct dynamically
+- May not be supported in all regex engines
+- Can significantly impact performance
+
+With trie-rules, these are simple options:
+
+```js
+const rule = {
+  from: ['test'],
+  to: 'result',
+  options: { match: MatchType.Whole },
+};
+```
+
+### 6. Apostrophe normalization
+
+Treating different apostrophe-like characters as equivalent with regex requires complex character classes:
+
+```js
+// Regex approach - error-prone and verbose
+const regex = new RegExp("al-Qur['\'\`ʼʾʿ]an", 'g');
+```
+
+With trie-rules, enable a simple option:
+
+```js
+const trie = buildTrie(rules, { normalizeApostrophes: true });
+```
+
+### 7. Dynamic updates
+
+Updating patterns with regex requires recompiling the entire pattern:
+
+```js
+// Regex - must rebuild entire pattern
+const patterns = [...existingPatterns, newPattern];
+const regex = new RegExp(patterns.join('|'), 'g');
+```
+
+With a trie, you can insert or remove patterns by adding/removing nodes:
+
+```js
+// Trie - add individual pattern
+insertWordIntoTrie(trie, newPattern, replacement, options);
+```
+
+<Info>
+Tries support efficient incremental updates without rebuilding the entire structure.
+</Info>
+
+### 8. Platform independence
+
+Regex engine performance is platform-dependent. Benchmarks show significant variations between Intel and ARM64 architectures.
+
+<Warning>
+Regex `\b` word boundaries don't match diacritic characters, which is problematic for non-ASCII text like Arabic transliterations.
+</Warning>
+
+Trie-based search provides consistent, predictable performance across platforms.
+
+## Historical context
+
+The trie-rules library was created to address limitations of a previous regex-based implementation:
+
+### Original regex approach
+
+```js
+const Alone = (word) => `(?<!\\S)${word}(?!\\S)`;
+const Bounded = (word) => `\\b${word}\\b`;
+
+const applyRules = (dictionary, text) => {
+  const regex = new RegExp(Object.keys(dictionary).join('|'), 'g');
+  
+  return text.replace(
+    regex,
+    (matched) => dictionary[Alone(matched.trim())] || 
+                 dictionary[Bounded(matched)] || 
+                 dictionary[matched] || '',
+  );
+};
+```
+
+### Problems encountered
+
+<AccordionGroup>
+  <Accordion title="Performance degradation">
+    As the rule set grew, regex performance became unacceptable, especially on ARM64 Apple Silicon chips.
+  </Accordion>
+  
+  <Accordion title="Complexity explosion">
+    Supporting custom rules with lookaheads and lookbehinds became increasingly complex and inefficient.
+  </Accordion>
+  
+  <Accordion title="Diacritic handling">
+    The `\b` word boundaries didn't match diacritic characters, causing incorrect matches in Arabic transliterations.
+  </Accordion>
+  
+  <Accordion title="Platform dependency">
+    Regex engine performance varied significantly between Intel and ARM64 platforms.
+  </Accordion>
+</AccordionGroup>
+
+The trie-based approach solved all these issues while providing better performance, flexibility, and maintainability.
+
+## Performance optimization tips
+
+<CardGroup cols={2}>
+  <Card title="Build once, search many" icon="recycle">
+    Amortize the `buildTrie` cost by building once and reusing for multiple searches.
+  </Card>
+  <Card title="Optimize rules first" icon="sliders">
+    Use `optimizeRules` to reduce the rule set size before building the trie.
+  </Card>
+  <Card title="Minimize callbacks" icon="gauge-high">
+    Confirmation callbacks are invoked frequently. Keep them simple and fast.
+  </Card>
+  <Card title="Cache tries" icon="database">
+    For static rule sets, build and cache the trie to avoid repeated construction.
+  </Card>
+</CardGroup>
+
+### Example: Cached trie
+
+```js
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+// Build once
+const trie = buildTrie(rules, { normalizeApostrophes: true });
+
+// Reuse for multiple texts
+const result1 = searchAndReplace(trie, text1);
+const result2 = searchAndReplace(trie, text2);
+const result3 = searchAndReplace(trie, text3);
+```
+
+### Example: Optimized rules
+
+```js
+import { optimizeRules, buildTrie, searchAndReplace } from 'trie-rules';
+
+// Optimize before building
+const optimized = optimizeRules(rules, { normalizeApostrophes: true });
+console.log(`Removed ${optimized.savings.sourcesRemoved} redundant sources`);
+
+// Build from optimized rules
+const trie = buildTrie(optimized.optimizedRules, { normalizeApostrophes: true });
+
+// Search with optimized trie
+const result = searchAndReplace(trie, text);
+```
+
+## Scalability
+
+The trie-rules library scales well with large rule sets and long texts:
+
+| Rule Set Size | Build Time | Search Time (1KB text) |
+|---------------|------------|------------------------|
+| 100 rules | ~300 μs | ~50 μs |
+| 1,000 rules | ~2.8 ms | ~70 μs |
+| 10,000 rules | ~28 ms | ~100 μs |
+
+<Info>
+Search time increases slowly with rule set size because the trie structure efficiently prunes non-matching paths.
+</Info>
+
+## Next steps
+
+- Review [basic usage](/guides/basic-usage) to get started
+- Explore [advanced matching](/guides/advanced-matching) options for precise control
+- Use [optimizeRules](/guides/optimization) to reduce rule set size

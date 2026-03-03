@@ -1,0 +1,140 @@
+---
+title: Utility functions
+description: Helper functions for character and casing operations in trie-rules
+---
+
+## adjustCasing
+
+Adjusts the casing of the target text based on the matched text.
+
+```typescript
+export const adjustCasing = (matchedText: string, targetText: string): string
+```
+
+<ParamField path="matchedText" type="string" required>
+  The text that was matched in the original text.
+</ParamField>
+
+<ParamField path="targetText" type="string" required>
+  The target replacement text.
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The target text with adjusted casing.
+</ResponseField>
+
+## findFirstAlphaIndex
+
+Finds the index of the first alphabetic letter in a string.
+
+```typescript
+export const findFirstAlphaIndex = (str: string): number
+```
+
+<ParamField path="str" type="string" required>
+  The string to search.
+</ParamField>
+
+<ResponseField name="return" type="number">
+  The index of the first alphabetic letter, or -1 if none found.
+</ResponseField>
+
+## generateCaseVariants
+
+Generates case variants for a given source string by toggling the case of the first alphabetic character.
+
+```typescript
+export const generateCaseVariants = (source: string): string[]
+```
+
+<ParamField path="source" type="string" required>
+  The source string.
+</ParamField>
+
+<ResponseField name="return" type="string[]">
+  An array containing the original string and its case variants.
+</ResponseField>
+
+## isAlphabeticLetter
+
+Determines if a character is an alphabetic letter (excluding apostrophe-like characters).
+
+```typescript
+export const isAlphabeticLetter = (char: string): boolean
+```
+
+<ParamField path="char" type="string" required>
+  The character to check.
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  True if the character is an alphabetic letter, false otherwise.
+</ResponseField>
+
+## isLetter
+
+Checks if the given character is a letter.
+
+```typescript
+export const isLetter = (char: string): boolean
+```
+
+<ParamField path="char" type="string" required>
+  The character to check.
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  True if the character is a letter, false otherwise.
+</ResponseField>
+
+## isLowerCase
+
+Checks if the given character is lowercase.
+
+```typescript
+export const isLowerCase = (char: string): boolean
+```
+
+<ParamField path="char" type="string" required>
+  The character to check.
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  True if the character is lowercase, false otherwise.
+</ResponseField>
+
+## isUpperCase
+
+Checks if the given character is uppercase.
+
+```typescript
+export const isUpperCase = (char: string): boolean
+```
+
+<ParamField path="char" type="string" required>
+  The character to check.
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  True if the character is uppercase, false otherwise.
+</ResponseField>
+
+## isWordCharacterAt
+
+Determines if a character at a given position is considered a word character. An apostrophe is considered a word character only if it's between letters.
+
+```typescript
+export const isWordCharacterAt = (text: string, index: number): boolean
+```
+
+<ParamField path="text" type="string" required>
+  The text containing the character.
+</ParamField>
+
+<ParamField path="index" type="number" required>
+  The position of the character in the text.
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  True if the character is a word character, false otherwise.
+</ResponseField>

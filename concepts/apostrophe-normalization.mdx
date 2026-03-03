@@ -1,0 +1,289 @@
+---
+title: Apostrophe normalization
+description: Flexible matching of apostrophe-like characters across different encodings
+---
+
+## Overview
+
+Apostrophe normalization is a global option that treats all apostrophe-like characters as equivalent during matching. This is particularly useful for text that may contain different apostrophe encodings (curly quotes, backticks, modifier letters, Arabic diacritics, etc.).
+
+When enabled, a rule defined with a standard apostrophe (`'`) will match **all** apostrophe-like variants in the input text.
+
+## Supported characters
+
+The following characters are treated as equivalent when `normalizeApostrophes: true`:
+
+| Character | Unicode | Name | Example |
+|-----------|---------|------|----------|
+| `'` | U+0027 | Standard apostrophe | `don't` |
+| `'` | U+2019 | Right single quotation mark (curly) | `don't` |
+| `` ` `` | U+0060 | Grave accent (backtick) | ``don`t`` |
+| `ʼ` | U+02BC | Modifier letter apostrophe | `donʼt` |
+| `ʾ` | U+02BE | Modifier letter right half ring (hamza) | `donʾt` |
+| `‛` | U+201B | Single high-reversed-9 quotation mark | `don‛t` |
+| `ʻ` | U+02BB | Modifier letter turned comma | `donʻt` |
+| `ʿ` | U+02BF | Modifier letter left half ring (ain) | `donʿt` |
+
+<Note>
+  The normalization regex is defined in `src/constants.ts` as:
+  ```typescript
+  export const APOSTROPHE_LIKE_REGEX = /['''`ʾ‛ʼʻʿ]/u;
+  ```
+</Note>
+
+## Enabling normalization
+
+Apostrophe normalization is controlled by the `normalizeApostrophes` option in `BuildTrieOptions`:
+
+```typescript
+type BuildTrieOptions = {
+  normalizeApostrophes?: boolean;
+};
+```
+
+### Basic example
+
+```javascript
+import { buildTrie, searchAndReplace } from 'trie-rules';
+
+const rules = [
+  {
+    from: ["don't"],
+    to: "do not"
+  }
+];
+
+// Build trie with normalization enabled
+const trie = buildTrie(rules, { normalizeApostrophes: true });
+
+// All of these will match:
+console.log(searchAndReplace(trie, "don't worry"));
+// Output: "do not worry"
+
+console.log(searchAndReplace(trie, "don't worry"));  // curly quote
+// Output: "do not worry"
+
+console.log(searchAndReplace(trie, "don`t worry"));  // backtick
+// Output: "do not worry"
+
+console.log(searchAndReplace(trie, "donʾt worry"));  // hamza
+// Output: "do not worry"
+```
+
+<Info>
+  Without `normalizeApostrophes: true`, each variant would require a separate entry in the `from` array.
+</Info>
+
+## How it works
+
+### During build time
+
+When building the trie with `normalizeApostrophes: true`:
+
+1. Each source word in `from` arrays has apostrophe-like characters replaced with the standard apostrophe (`'`)
+2. The normalized form is inserted into the trie
+3. The `buildOptions` object is stored at the trie root for reference during search
+
+```javascript
+// src/trie.ts - buildTrie function
+for (let source of sources) {
+  source = normalizeApostrophes 
+    ? source.replace(APOSTROPHE_LIKE_REGEX, "'") 
+    : source;
+  
+  // ... insert into trie
+}
+```
+
+### During search time
+
+When searching with `searchAndReplace`:
+
+1. The algorithm checks if `trie.buildOptions?.normalizeApostrophes` is `true`
+2. For each character in the input text:
+   - If it matches `APOSTROPHE_LIKE_REGEX`, it's converted to `'` for trie lookup
+   - The original character in the text is preserved (not modified)
+3. Matches are found using the normalized lookup character
+
+```javascript
+// src/trie.ts - searchAndReplace function
+let lookupChar = currentChar;
+
+// If apostrophe normalization is enabled, normalize apostrophe-like chars
+if (normalizeApostrophes && APOSTROPHE_LIKE_REGEX.test(currentChar)) {
+  lookupChar = "'";
+}
+
+if (!node[lookupChar]) {
+  break;
+}
+```
+
+<Tip>
+  Normalization only affects **matching logic**, not the output text. Apostrophe-like characters in the input are removed/replaced according to the rule's replacement value.
+</Tip>
+
+## Real-world use cases
+
+### Arabic transliteration
+
+Apostrophes often represent Arabic diacritics like hamza (ʾ) and ain (ʿ). Different sources may use different apostrophe encodings:
+
+```javascript
+const rules = [
+  {
+    from: ["al-Qur'an"],
+    to: 'al-Qurʾān',
+    options: { match: MatchType.Whole }
+  },
+  {
+    from: ["Ka'bah"],
+    to: 'Kaʿbah'
+  }
+];
+
+const trie = buildTrie(rules, { normalizeApostrophes: true });
+
+// All of these match correctly:
+console.log(searchAndReplace(trie, "The recitation of al-Qur'an"));
+// Output: "The recitation of al-Qurʾān"
+
+console.log(searchAndReplace(trie, 'We went by the Ka`bah yesterday.'));
+// Output: "We went by the Kaʿbah yesterday."
+
+console.log(searchAndReplace(trie, 'The holy al-Qurʾan and sacred Kaʿbah'));
+// Output: "The holy al-Qurʾān and sacred Kaʿbah"
+```
+
+### English contractions
+
+Different text editors and keyboards produce different apostrophe characters:
+
+```javascript
+const rules = [
+  { from: ["don't"], to: "do not" },
+  { from: ["can't"], to: "cannot" },
+  { from: ["won't"], to: "will not" }
+];
+
+const trie = buildTrie(rules, { normalizeApostrophes: true });
+
+const text = "I don't think we can't do this, but I won't give up.";
+console.log(searchAndReplace(trie, text));
+// Output: "I do not think we cannot do this, but I will not give up."
+```
+
+## Performance considerations
+
+Apostrophe normalization has minimal performance impact:
+
+<AccordionGroup>
+  <Accordion title="Build time">
+    - Each source word is scanned once for apostrophe-like characters
+    - Replacement is a simple string operation
+    - **Impact**: Negligible for typical rule sets
+  </Accordion>
+  
+  <Accordion title="Search time">
+    - Each input character is tested against `APOSTROPHE_LIKE_REGEX` if normalization is enabled
+    - Unicode regex test is efficient (single character match)
+    - Only affects characters that match the pattern
+    - **Impact**: Minimal overhead, typically &lt;5% in real-world text
+  </Accordion>
+  
+  <Accordion title="Memory">
+    - No additional memory overhead
+    - Trie stores only normalized forms
+    - **Impact**: None
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Benchmark results show that `searchAndReplace` with apostrophe normalization completes in approximately **71 microseconds** for typical inputs (see README performance section).
+</Note>
+
+## Combining with other features
+
+### With case insensitivity
+
+```javascript
+const rules = [
+  {
+    from: ["don't"],
+    to: "do not",
+    options: {
+      casing: CaseSensitivity.Insensitive
+    }
+  }
+];
+
+const trie = buildTrie(rules, { normalizeApostrophes: true });
+
+// Matches all case and apostrophe variants:
+console.log(searchAndReplace(trie, "Don't worry"));
+// Output: "Do not worry"
+
+console.log(searchAndReplace(trie, "DON'T WORRY"));
+// Output: "DO NOT WORRY"
+
+console.log(searchAndReplace(trie, "don`t worry"));
+// Output: "do not worry"
+```
+
+### With clipping patterns
+
+```javascript
+const rules = [
+  {
+    from: ["test"],
+    to: "result",
+    options: {
+      clipStartPattern: TriePattern.Apostrophes,
+      clipEndPattern: TriePattern.Apostrophes
+    }
+  }
+];
+
+const trie = buildTrie(rules, { normalizeApostrophes: true });
+
+console.log(searchAndReplace(trie, "The 'test' here"));
+// Output: "The result here"
+
+console.log(searchAndReplace(trie, "The ʿtest` here"));
+// Output: "The result here" (different apostrophes clipped)
+```
+
+<Warning>
+  When using both apostrophe normalization and clipping patterns, be aware that clipping happens **after** matching. The `TriePattern.Apostrophes` pattern will clip any apostrophe-like character, regardless of normalization settings.
+</Warning>
+
+## Without normalization
+
+If you need to distinguish between different apostrophe types, set `normalizeApostrophes: false` (or omit it, as it defaults to `false`):
+
+```javascript
+const rules = [
+  { from: ["don't"], to: "do not" },     // standard apostrophe
+  { from: ["don't"], to: "do not" },     // curly quote
+  { from: ["don`t"], to: "do not" }      // backtick
+];
+
+const trie = buildTrie(rules); // normalizeApostrophes defaults to false
+
+// Each variant must be explicitly defined in the rules
+```
+
+<Tip>
+  If you're working with text from multiple sources with inconsistent apostrophe usage, enabling normalization will significantly reduce the number of rules you need to maintain.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Rules" icon="list-check" href="/concepts/rules">
+    Learn more about rule structure and options
+  </Card>
+  <Card title="Matching options" icon="bullseye" href="/concepts/matching-options">
+    Explore MatchType and clipping patterns
+  </Card>
+</CardGroup>

@@ -1,0 +1,302 @@
+---
+title: Rule optimization
+description: Automatically consolidate redundant patterns using optimizeRules to reduce rule set size and detect conflicts.
+---
+
+## Overview
+
+The `optimizeRules` function analyzes your rule set and automatically consolidates redundant patterns. This reduces the size of your rules while maintaining the same matching behavior.
+
+<Note>
+Optimization is optional but recommended for large rule sets to improve maintainability and potentially reduce trie build time.
+</Note>
+
+## Basic usage
+
+Import and use `optimizeRules` before building your trie:
+
+```js
+import { optimizeRules, buildTrie } from 'trie-rules';
+
+const rules = [
+  { from: ['Source', 'source'], to: 'Target' },
+  { from: ['Bukhari', 'al-Bukhari'], to: 'Bukhari' },
+  { from: ['Source1', 'Source2', 'Source3'], to: 'Target' },
+  { from: ['Source1', 'Source2'], to: 'Target' },
+];
+
+const result = optimizeRules(rules);
+
+console.log(result.optimizedRules);
+// Consolidated rules with fewer sources and automatic options
+
+console.log(result.savings);
+// { sourcesRemoved: N, rulesRemoved: M }
+
+console.log(result.warnings);
+// { conflicts: [...], matchTypeConflicts: [...], overwrittenRules: [...] }
+```
+
+## Optimizations performed
+
+The optimizer applies several strategies to consolidate your rules:
+
+<Steps>
+  <Step title="Case sensitivity consolidation">
+    Detects sources that differ only in case and adds `casing: CaseSensitivity.Insensitive`.
+  </Step>
+  <Step title="Apostrophe normalization">
+    When `normalizeApostrophes: true` is set, consolidates sources that differ only in apostrophe-like characters.
+  </Step>
+  <Step title="Prefix optimization">
+    Detects redundant prefix variations and adds a `prefix` option instead.
+  </Step>
+  <Step title="Clip pattern optimization">
+    Detects leading/trailing apostrophe-like characters and adds `clipStartPattern` or `clipEndPattern` options.
+  </Step>
+  <Step title="Subset elimination">
+    Removes rules whose sources are a subset of another rule with the same target.
+  </Step>
+  <Step title="Match type consolidation">
+    Merges rules with different `MatchType` values, keeping the most permissive.
+  </Step>
+</Steps>
+
+## Case sensitivity consolidation
+
+Before optimization:
+
+```js
+const rules = [
+  { from: ['Source', 'source'], to: 'Target' },
+];
+```
+
+After optimization:
+
+```js
+const result = optimizeRules(rules);
+// result.optimizedRules:
+[
+  {
+    from: ['Source'],
+    to: 'Target',
+    options: { casing: CaseSensitivity.Insensitive },
+  },
+]
+// result.savings.sourcesRemoved: 1
+```
+
+<Info>
+The optimizer automatically detects case variants and adds the appropriate `casing` option, reducing redundancy.
+</Info>
+
+## Prefix optimization
+
+Before optimization:
+
+```js
+const rules = [
+  { from: ['Bukhari', 'al-Bukhari'], to: 'Bukhari' },
+];
+```
+
+After optimization:
+
+```js
+const result = optimizeRules(rules);
+// result.optimizedRules:
+[
+  {
+    from: ['Bukhari'],
+    to: 'Bukhari',
+    options: { prefix: 'al-' },
+  },
+]
+// result.savings.sourcesRemoved: 1
+```
+
+<Tip>
+The optimizer recognizes common Arabic article prefixes: `al-`, `ash-`, `an-`, `ar-`, `as-`, `ath-`, `ad-`
+</Tip>
+
+## Subset elimination
+
+Before optimization:
+
+```js
+const rules = [
+  { from: ['Source1', 'Source2', 'Source3'], to: 'Target' },
+  { from: ['Source1', 'Source2'], to: 'Target' },
+];
+```
+
+After optimization:
+
+```js
+const result = optimizeRules(rules);
+// result.optimizedRules:
+[
+  { from: ['Source1', 'Source2', 'Source3'], to: 'Target' },
+]
+// result.savings.rulesRemoved: 1
+```
+
+<Info>
+The second rule is redundant because its sources are a complete subset of the first rule with the same target.
+</Info>
+
+## Apostrophe normalization
+
+When using apostrophe normalization, the optimizer consolidates apostrophe variants:
+
+```js
+const rules = [
+  { from: ["al-Qur'an", "al-Qur'an", 'al-Qur`an'], to: 'al-Qurʾān' },
+];
+
+const result = optimizeRules(rules, { normalizeApostrophes: true });
+// result.optimizedRules:
+[
+  { from: ["al-Qur'an"], to: 'al-Qurʾān' },
+]
+// result.savings.sourcesRemoved: 2
+```
+
+## Conflict detection
+
+The optimizer warns when the same source maps to different targets:
+
+```js
+const rules = [
+  { from: ['Ali'], to: 'ʿAlī' },
+  { from: ['Ali'], to: 'ʾAlī' },
+];
+
+const result = optimizeRules(rules);
+
+console.log(result.warnings.conflicts);
+// [
+//   {
+//     from: 'Ali',
+//     conflictingTo: ['ʿAlī', 'ʾAlī']
+//   }
+// ]
+```
+
+<Warning>
+Conflicts indicate that the same source pattern has multiple different replacement targets. The last rule in the array will take precedence during matching.
+</Warning>
+
+## Match type conflicts
+
+The optimizer detects and consolidates rules with different match types:
+
+```js
+import { optimizeRules, MatchType } from 'trie-rules';
+
+const rules = [
+  { from: ['test'], to: 'result', options: { match: MatchType.Any } },
+  { from: ['test'], to: 'result', options: { match: MatchType.Whole } },
+];
+
+const result = optimizeRules(rules);
+// Consolidates to most permissive match type (Any)
+// result.optimizedRules:
+[
+  { from: ['test'], to: 'result', options: { match: MatchType.Any } },
+]
+```
+
+<Info>
+When multiple rules have the same source and target but different match types, the optimizer keeps the most permissive type: `Any` > `Whole` > `Alone`
+</Info>
+
+## Overwritten rules
+
+The optimizer detects rules that would be overwritten in the trie:
+
+```js
+const rules = [
+  { from: ['test'], to: 'first' },
+  { from: ['test'], to: 'second' },
+];
+
+const result = optimizeRules(rules);
+
+console.log(result.warnings.overwrittenRules);
+// [
+//   {
+//     from: 'test',
+//     kept: { from: ['test'], to: 'second' },
+//     discarded: [{ from: ['test'], to: 'first' }]
+//   }
+// ]
+```
+
+<Warning>
+When the same source appears in multiple rules, the last one wins. Consider if this is intentional or if you need to resolve the conflict.
+</Warning>
+
+## Optimization result structure
+
+The `OptimizeResult` object contains:
+
+<ResponseField name="optimizedRules" type="Rule[]">
+  The optimized array of rules with redundancies removed and options consolidated.
+</ResponseField>
+
+<ResponseField name="savings" type="object">
+  Statistics about the optimization process.
+  
+  <Expandable>
+    <ResponseField name="sourcesRemoved" type="number">
+      Number of individual source strings removed from rules.
+    </ResponseField>
+    
+    <ResponseField name="rulesRemoved" type="number">
+      Number of complete rules removed (e.g., subset rules).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="warnings" type="object">
+  Warnings about potential issues found during optimization.
+  
+  <Expandable>
+    <ResponseField name="conflicts" type="array">
+      Source values that have conflicting target values.
+    </ResponseField>
+    
+    <ResponseField name="matchTypeConflicts" type="array">
+      Source values with conflicting match types.
+    </ResponseField>
+    
+    <ResponseField name="overwrittenRules" type="array">
+      Rules that would be overwritten in the trie.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Best practices
+
+<CardGroup cols={2}>
+  <Card title="Run optimization early" icon="bolt">
+    Optimize rules before building the trie to reduce build time and catch issues early.
+  </Card>
+  <Card title="Review warnings" icon="triangle-exclamation">
+    Always inspect the warnings object to identify and resolve conflicts in your rule set.
+  </Card>
+  <Card title="Track savings" icon="chart-line">
+    Monitor `sourcesRemoved` and `rulesRemoved` to understand the impact of optimization.
+  </Card>
+  <Card title="Test thoroughly" icon="vial">
+    Verify that optimized rules produce the same results as your original rules.
+  </Card>
+</CardGroup>
+
+## Next steps
+
+- Implement [confirmation callbacks](/guides/confirmation-callbacks) for context-aware matching
+- Review [performance characteristics](/guides/performance) and benchmarks
+- Explore [advanced matching](/guides/advanced-matching) options
